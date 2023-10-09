@@ -7,11 +7,14 @@ pub mod netplan;
 pub mod opensight_os_api_lib;
 pub mod routes;
 use crate::routes::{ethernet, host_info};
-use actix_web::{web::Data, App, HttpServer};
+use actix_web::{middleware::Logger, web::Data, App, HttpServer};
 use opensight_os_api_lib::OpenSightOSApiLib;
 use std::net::Ipv4Addr;
 use utoipa::{openapi::Info, OpenApi};
 use utoipa_actix_web::AppExt;
+use utoipa_rapidoc::RapiDoc;
+use utoipa_redoc::{Redoc, Servable};
+use utoipa_scalar::{Scalar, Servable as ScalarServable};
 use utoipa_swagger_ui::SwaggerUi;
 
 /// Configures the API documentation information.
@@ -34,6 +37,7 @@ fn config_api() -> Info {
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
+    env_logger::init();
     // The OpenApi main struct that should hold the whole documentation of the API
     #[derive(utoipa::OpenApi)]
     #[openapi(
@@ -59,6 +63,8 @@ async fn main() -> Result<(), std::io::Error> {
         App::new()
             .into_utoipa_app()
             .openapi(openapi.clone())
+            // Add some logging if wanted, so we can see what's happening
+            .map(|app| app.wrap(Logger::default()))
             // The application's routes/scopes are configured here independently
             .service(
                 utoipa_actix_web::scope("/ethernets")
@@ -71,6 +77,9 @@ async fn main() -> Result<(), std::io::Error> {
             .openapi_service(|api| {
                 SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", api)
             })
+            .openapi_service(|api| Redoc::with_url("/redoc", api))
+            .map(|app| app.service(RapiDoc::new("api-docs/openapi.json").path("/rapidoc")))
+            .openapi_service(|api| Scalar::with_url("/scalar", api))
             .into_app()
     })
     .bind((Ipv4Addr::UNSPECIFIED, 8080))?
