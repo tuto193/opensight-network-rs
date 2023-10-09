@@ -1,12 +1,17 @@
 use crate::models::network::Network;
-use actix_web::HttpResponse;
 use serde_yml;
 use std::fs;
 use std::io::{self, ErrorKind};
 use std::process::{Command, Output};
+use std::sync::Mutex;
 
 const NETPLAN_CONFIG_PATH: &str = "/etc/netplan/config.yaml";
-pub struct Netplan;
+
+struct Netplan;
+
+pub struct NetplanStore {
+    netplan: Mutex<Netplan>,
+}
 
 impl Netplan {
     fn run_command(cmd: Vec<&str>) -> io::Result<Output> {

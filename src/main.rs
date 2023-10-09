@@ -9,7 +9,7 @@ use crate::routes::ethernet::EthernetsApi;
 use actix_web::{get, HttpResponse, Responder};
 use utoipa::OpenApi;
 
-use opensight_os_api_lib::{ContactInformation, LicenseInformation, OpenSightOSApiLib};
+use opensight_os_api_lib::OpenSightOSApiLib;
 
 #[derive(utoipa::OpenApi)]
 #[openapi(

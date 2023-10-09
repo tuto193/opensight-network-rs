@@ -54,13 +54,13 @@ impl OpenSightOSApiLib {
     }
 
     pub async fn start(&self, openapi: utoipa::openapi::OpenApi) -> Result<(), std::io::Error> {
-        let baby_clone = openapi.clone();
+        let baby_clone = openapi;
         HttpServer::new(move || {
             App::new().service(
                 SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", baby_clone.clone()),
             )
         })
-        .bind((Ipv4Addr::UNSPECIFIED, 8080))?
+        .bind((Ipv4Addr::LOCALHOST, 8080))?
         .run()
         .await
     }
