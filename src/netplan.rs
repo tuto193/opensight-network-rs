@@ -7,10 +7,12 @@ use std::sync::Mutex;
 
 const NETPLAN_CONFIG_PATH: &str = "/etc/netplan/config.yaml";
 
-struct Netplan;
+#[derive(Default)]
+pub struct Netplan;
 
+#[derive(Default)]
 pub struct NetplanStore {
-    netplan: Mutex<Netplan>,
+    pub netplan: Mutex<Netplan>,
 }
 
 impl Netplan {
@@ -26,13 +28,13 @@ impl Netplan {
         Ok(output)
     }
 
-    pub fn apply() -> io::Result<()> {
+    pub fn apply(&self) -> io::Result<()> {
         let cmd = vec!["apply"];
         Self::run_command(cmd)?;
         Ok(())
     }
 
-    pub fn tryout() -> io::Result<()> {
+    pub fn tryout(&self) -> io::Result<()> {
         let cmd = vec![
             "try",
             "--timeout",
@@ -44,13 +46,13 @@ impl Netplan {
         Ok(())
     }
 
-    pub fn load_config() -> io::Result<Network> {
+    pub fn load_config(&self) -> io::Result<Network> {
         let config_content = fs::read_to_string(NETPLAN_CONFIG_PATH);
         match config_content {
             Err(_) => {
                 // The config file does not exist, so we create it.
                 let network = Network::new();
-                Self::save_config(&network)?;
+                self.save_config(&network)?;
                 Ok(network)
             }
             Ok(config_content) => {
@@ -87,7 +89,7 @@ impl Netplan {
         Ok(())
     }
 
-    pub fn save_config(network: &Network) -> io::Result<()> {
+    pub fn save_config(&self, network: &Network) -> io::Result<()> {
         Self::backup_config()?;
         // let data = serde_yml::to_value(network)
         // .expect("Error: there was a problem while serializing the Network into YAML.");
@@ -100,12 +102,12 @@ impl Netplan {
         Ok(())
     }
 
-    pub fn restore_config() {
+    pub fn restore_config(&self) {
         let backup_path = format!("{}.bak", NETPLAN_CONFIG_PATH);
         fs::copy(backup_path, NETPLAN_CONFIG_PATH).unwrap();
     }
 
-    pub fn get_diff(compact: bool) -> io::Result<String> {
+    pub fn get_diff(&self, compact: bool) -> io::Result<String> {
         let mut cmd = vec!["status", "--diff"];
         if compact {
             cmd[1] = "--diff-only";

@@ -1,15 +1,16 @@
 use std::net::{AddrParseError, IpAddr};
 
 use crate::{
-    models::{device::Device, ethernet::Ethernet, route::Route},
-    netplan::NetplanStore,
+    models::device::Device,
+    models::ethernet::Ethernet,
+    netplan::{Netplan, NetplanStore},
 };
 use actix_web::{
     delete, get, patch, post, put,
     web::{Data, Json, Path, ServiceConfig},
     HttpResponse, Responder,
 };
-use utoipa::{IntoParams, OpenApi, ToSchema};
+use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(paths(
@@ -32,8 +33,29 @@ use utoipa::{IntoParams, OpenApi, ToSchema};
     get_ethernet_routes,
     add_ethernet_route,
 ))]
+/// API documentation for Ethernet management.
+///
+/// This struct provides the OpenAPI documentation for various endpoints related to Ethernet management.
+/// The documented endpoints include operations for showing all ethernets, creating a new ethernet,
+/// retrieving an existing ethernet, deleting an ethernet, managing IP addresses, DHCP settings, MTU,
+/// accept_ra, nameservers, and routes.
 pub struct EthernetsApi;
 
+/// Configures the service with the provided NetplanStore.
+///
+/// This function sets up the service configuration by adding the necessary
+/// data and services to the provided `ServiceConfig`. It registers various
+/// endpoints related to Ethernet management, such as showing all ethernets,
+/// creating a new ethernet, getting an existing ethernet, deleting an ethernet,
+/// and managing IP addresses, DHCP settings, MTU, accept_ra, nameservers, and routes.
+///
+/// # Arguments
+///
+/// * `store` - A `Data<NetplanStore>` instance that holds the Netplan configuration store.
+///
+/// # Returns
+///
+/// A closure that takes a mutable reference to `ServiceConfig` and configures it with the necessary services.
 pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
     |config: &mut ServiceConfig| {
         config
@@ -74,8 +96,9 @@ pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
 /// # Returns
 /// - `HttpResponse::Ok` with a JSON body containing the Ethernet entries if successful.
 /// - `HttpResponse::InternalServerError` with an error message if there is an issue loading the configuration.
-pub async fn show_all_ethernets(store: Data<NetplanStore>) -> impl Responder {
-    let network = match Netplan::load_config() {
+pub async fn show_all_ethernets(netplan_store: Data<NetplanStore>) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -90,16 +113,20 @@ pub async fn show_all_ethernets(store: Data<NetplanStore>) -> impl Responder {
     )
 )]
 #[post("/<ethernet_name>")]
-pub async fn create_ethernet(ethernet_name: String) -> impl Responder {
+pub async fn create_ethernet(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let result = Ethernet::new(ethernet_name.clone());
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
     network.add_ethernet(result.clone());
-    match Netplan::save_config(&network) {
+    match netplan.save_config(&network) {
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-        Ok(_) => match Netplan::apply() {
+        Ok(_) => match netplan.apply() {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
             Ok(_) => HttpResponse::Ok().json(result),
         },
@@ -114,8 +141,12 @@ pub async fn create_ethernet(ethernet_name: String) -> impl Responder {
     )
 )]
 #[get("/{ethernet_name}")]
-pub async fn get_ethernet(ethernet_name: String) -> impl Responder {
-    let network = match Netplan::load_config() {
+pub async fn get_ethernet(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -135,8 +166,12 @@ pub async fn get_ethernet(ethernet_name: String) -> impl Responder {
     )
 )]
 #[post("/{ethernet_name}")]
-pub async fn delete_ethernet(ethernet_name: String) -> impl Responder {
-    let mut network = match Netplan::load_config() {
+pub async fn delete_ethernet(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -156,12 +191,17 @@ pub async fn delete_ethernet(ethernet_name: String) -> impl Responder {
     )
 )]
 #[post("/{ethernet_name}/addresses")]
-pub async fn add_ethernet_ip_address(ethernet_name: String, ip_address: String) -> impl Responder {
+pub async fn add_ethernet_ip_address(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+    ip_address: String,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let to_add = match ip_address.parse::<IpAddr>() {
         Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
         Ok(ip) => ip,
     };
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -172,9 +212,9 @@ pub async fn add_ethernet_ip_address(ethernet_name: String, ip_address: String) 
         ethernet.add_address(to_add);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match Netplan::apply() {
+            Ok(_) => match netplan.apply() {
                 Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
                 Ok(_) => HttpResponse::Ok().json(ethernet),
             },
@@ -192,8 +232,12 @@ pub async fn add_ethernet_ip_address(ethernet_name: String, ip_address: String) 
     )
 )]
 #[get("/{ethernet_name}/addresses")]
-pub async fn get_ethernet_ip_addresses(ethernet_name: String) -> impl Responder {
-    let network = match Netplan::load_config() {
+pub async fn get_ethernet_ip_addresses(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(n) => n,
     };
@@ -214,14 +258,16 @@ pub async fn get_ethernet_ip_addresses(ethernet_name: String) -> impl Responder 
 )]
 #[delete("/{ethernet_name}/addresses/{ip_address}")]
 pub async fn delete_ethernet_ip_address(
+    netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     ip_address: String,
 ) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let to_delete = match ip_address.parse::<IpAddr>() {
         Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
         Ok(ip) => ip,
     };
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -231,9 +277,9 @@ pub async fn delete_ethernet_ip_address(
         ethernet.delete_address(&to_delete);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match Netplan::apply() {
+            Ok(_) => match netplan.apply() {
                 Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
                 Ok(_) => HttpResponse::Ok().json(ethernet),
             },
@@ -251,8 +297,12 @@ pub async fn delete_ethernet_ip_address(
     )
 )]
 #[get("/{ethernet_name}/nameservers")]
-pub async fn get_ethernet_nameservers(ethernet_name: String) -> impl Responder {
-    let network = match Netplan::load_config() {
+pub async fn get_ethernet_nameservers(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(n) => n,
     };
@@ -273,10 +323,12 @@ pub async fn get_ethernet_nameservers(ethernet_name: String) -> impl Responder {
 )]
 #[post("/{ethernet_name}/nameservers")]
 pub async fn add_ethernet_nameservers_search(
+    netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     search: String,
 ) -> impl Responder {
-    let mut network = match Netplan::load_config() {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -286,9 +338,9 @@ pub async fn add_ethernet_nameservers_search(
         ethernet.add_nameservers_search(search);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match Netplan::apply() {
+            Ok(_) => match netplan.apply() {
                 Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
                 Ok(_) => HttpResponse::Ok().json(ethernet),
             },
@@ -306,9 +358,14 @@ pub async fn add_ethernet_nameservers_search(
     )
 )]
 #[patch("/{ethernet_name}/dhcp4")]
-pub async fn update_ethernet_dhcp4(ethernet_name: String, dhcp4: Json<bool>) -> impl Responder {
+pub async fn update_ethernet_dhcp4(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+    dhcp4: Json<bool>,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let dhcp4 = dhcp4.into_inner();
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -318,9 +375,9 @@ pub async fn update_ethernet_dhcp4(ethernet_name: String, dhcp4: Json<bool>) -> 
         ethernet.set_dhcp4(dhcp4);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match Netplan::apply() {
+            Ok(_) => match netplan.apply() {
                 Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
                 Ok(_) => HttpResponse::Ok().json(ethernet),
             },
@@ -338,9 +395,14 @@ pub async fn update_ethernet_dhcp4(ethernet_name: String, dhcp4: Json<bool>) -> 
     )
 )]
 #[patch("/{ethernet_name}/dhcp6")]
-pub async fn update_ethernet_dhcp6(ethernet_name: String, dhcp6: Json<bool>) -> impl Responder {
+pub async fn update_ethernet_dhcp6(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+    dhcp6: Json<bool>,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let dhcp6 = dhcp6.into_inner();
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -350,9 +412,9 @@ pub async fn update_ethernet_dhcp6(ethernet_name: String, dhcp6: Json<bool>) -> 
         ethernet.set_dhcp6(dhcp6);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match Netplan::apply() {
+            Ok(_) => match netplan.apply() {
                 Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
                 Ok(_) => HttpResponse::Ok().json(ethernet),
             },
@@ -371,11 +433,13 @@ pub async fn update_ethernet_dhcp6(ethernet_name: String, dhcp6: Json<bool>) -> 
 )]
 #[patch("/{ethernet_name}/accept_ra")]
 pub async fn update_ethernet_accept_ra(
+    netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     accept_ra: Json<bool>,
 ) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let accept_ra = accept_ra.into_inner();
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -385,7 +449,7 @@ pub async fn update_ethernet_accept_ra(
         ethernet.set_accept_ra(accept_ra);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Ok(_) => HttpResponse::Ok().json(ethernet),
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
         }
@@ -402,9 +466,14 @@ pub async fn update_ethernet_accept_ra(
     )
 )]
 #[patch("/{ethernet_name}/mtu")]
-pub async fn update_ethernet_mtu(ethernet_name: String, mtu: Json<usize>) -> impl Responder {
+pub async fn update_ethernet_mtu(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+    mtu: Json<usize>,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let mtu = mtu.into_inner();
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -414,9 +483,9 @@ pub async fn update_ethernet_mtu(ethernet_name: String, mtu: Json<usize>) -> imp
         ethernet.set_mtu(mtu);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match Netplan::apply() {
+            Ok(_) => match netplan.apply() {
                 Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
                 Ok(_) => HttpResponse::Ok().json(ethernet),
             },
@@ -435,10 +504,12 @@ pub async fn update_ethernet_mtu(ethernet_name: String, mtu: Json<usize>) -> imp
 )]
 #[delete("/{ethernet_name}/nameservers/search")]
 pub async fn delete_ethernet_nameservers_search(
+    netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     search: String,
 ) -> impl Responder {
-    let mut network = match Netplan::load_config() {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -448,9 +519,9 @@ pub async fn delete_ethernet_nameservers_search(
         ethernet.delete_nameservers_search(search);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match Netplan::apply() {
+            Ok(_) => match netplan.apply() {
                 Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
                 Ok(_) => HttpResponse::Ok().json(ethernet),
             },
@@ -469,14 +540,16 @@ pub async fn delete_ethernet_nameservers_search(
 )]
 #[post("/{ethernet_name}/nameservers/address")]
 pub async fn add_ethernet_nameservers_address(
+    netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     address: String,
 ) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let address: IpAddr = match address.parse() {
         Err(_) => return HttpResponse::BadRequest().finish(),
         Ok(address) => address,
     };
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -486,7 +559,7 @@ pub async fn add_ethernet_nameservers_address(
         ethernet.add_nameservers_address(address);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Ok(_) => HttpResponse::Ok().json(ethernet),
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
         }
@@ -504,14 +577,16 @@ pub async fn add_ethernet_nameservers_address(
 )]
 #[delete("/{ethernet_name}/nameservers/address")]
 pub async fn delete_ethernet_nameservers_address(
+    netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     address: String,
 ) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let address: IpAddr = match address.parse() {
         Err(_) => return HttpResponse::BadRequest().finish(),
         Ok(address) => address,
     };
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -521,7 +596,7 @@ pub async fn delete_ethernet_nameservers_address(
         ethernet.delete_nameservers_address(&address);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Ok(_) => HttpResponse::Ok().json(ethernet),
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
         }
@@ -538,8 +613,12 @@ pub async fn delete_ethernet_nameservers_address(
     )
 )]
 #[get("/{ethernet_name}/routes")]
-pub async fn get_ethernet_routes(ethernet_name: String) -> impl Responder {
-    let network = match Netplan::load_config() {
+pub async fn get_ethernet_routes(
+    netplan_store: Data<NetplanStore>,
+    ethernet_name: String,
+) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
+    let network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(n) => n,
     };
@@ -559,12 +638,32 @@ pub async fn get_ethernet_routes(ethernet_name: String) -> impl Responder {
     )
 )]
 #[post("/{ethernet_name}/routes")]
+/// Adds a route to an existing Ethernet entry.
+///
+/// This function parses the provided `to`, `via`, and `from` IP addresses, loads the network configuration,
+/// and adds the route to the specified Ethernet entry. If the Ethernet entry is found, the route is added,
+/// and the updated configuration is saved and applied. If the Ethernet entry is not found, a 404 response is returned.
+///
+/// # Arguments
+/// - `netplan_store`: A `Data<NetplanStore>` instance that holds the Netplan configuration store.
+/// - `ethernet_name`: The name of the Ethernet entry to which the route will be added.
+/// - `to`: The destination IP address for the route.
+/// - `via`: The gateway IP address for the route (optional).
+/// - `from`: The source IP address for the route (optional).
+///
+/// # Returns
+/// - `HttpResponse::Ok` with a JSON body containing the updated Ethernet entry if successful.
+/// - `HttpResponse::BadRequest` if the provided IP addresses are invalid.
+/// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
+/// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
 pub async fn add_ethernet_route(
+    netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     to: String,
     via: String,
     from: String,
 ) -> impl Responder {
+    let netplan = netplan_store.netplan.lock().unwrap();
     let to = match to.parse::<IpAddr>() {
         Ok(to) => to,
         Err(err) => {
@@ -579,7 +678,7 @@ pub async fn add_ethernet_route(
         Ok(ip) => Some(ip),
         Err(_) => None,
     };
-    let mut network = match Netplan::load_config() {
+    let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
@@ -589,7 +688,7 @@ pub async fn add_ethernet_route(
         ethernet.add_route(to, via, from);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
-        match Netplan::save_config(&network) {
+        match netplan.save_config(&network) {
             Ok(_) => HttpResponse::Ok().json(ethernet),
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
         }

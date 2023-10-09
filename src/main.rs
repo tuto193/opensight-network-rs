@@ -6,7 +6,6 @@ pub mod netplan;
 pub mod opensight_os_api_lib;
 pub mod routes;
 use crate::routes::ethernet::EthernetsApi;
-use actix_web::{get, HttpResponse, Responder};
 use utoipa::OpenApi;
 
 use opensight_os_api_lib::OpenSightOSApiLib;
