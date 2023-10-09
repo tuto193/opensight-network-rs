@@ -471,10 +471,10 @@ pub async fn add_ethernet_route(
     via: String,
     from: String,
 ) -> impl Responder {
-    let to: IpAddr = match to.parse() {
+    let to = match to.parse::<IpAddr>() {
         Ok(to) => to,
-        Err(_) => {
-            return HttpResponse::BadRequest().finish();
+        Err(err) => {
+            return HttpResponse::BadRequest().body(err.to_string());
         }
     };
     let via: Option<IpAddr> = match via.parse() {
