@@ -2,14 +2,14 @@
 name = "opensight-network-rs"
 version = "0.1.0"
 edition = "2021"
-authos = "Carlos A. Parra F. (tuto193)"
+author = "Carlos A. Parra F. (tuto193)"
 
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"] }
 serde_yml = "0.0.12"
-utoipa = { version = "5.1.2", features = ["actix_extras"] }
+utoipa = { version = "5", features = ["actix_extras"] }
 utoipa-actix-web = "0.1.0"
 utoipa-swagger-ui = { version = "8.0.3", features = ["actix-web"] }
-actix-web = "4.9.0"
+actix-web = "4"
 futures = "0.3.31"
 uuid = { version = "1.0", features = ["v4"] }

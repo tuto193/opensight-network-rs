@@ -52,7 +52,7 @@ async fn main() -> Result<(), std::io::Error> {
             })
             .into_app()
     })
-    .bind((Ipv4Addr::LOCALHOST, 8080))?
+    .bind((Ipv4Addr::UNSPECIFIED, 8080))?
     .run()
     .await
 }
