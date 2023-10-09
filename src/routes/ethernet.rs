@@ -1,4 +1,4 @@
-use std::net::{AddrParseError, IpAddr};
+use std::net::IpAddr;
 
 use crate::{
     models::device::Device,
@@ -6,8 +6,8 @@ use crate::{
     netplan::{Netplan, NetplanStore},
 };
 use actix_web::{
-    delete, get, patch, post, put,
-    web::{Data, Json, Path},
+    delete, get, patch, post,
+    web::{Data, Json},
     HttpResponse, Responder,
 };
 use utoipa::{path as api_path, OpenApi};

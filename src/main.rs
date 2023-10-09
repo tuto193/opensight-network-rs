@@ -5,7 +5,9 @@ pub mod models;
 pub mod netplan;
 pub mod opensight_os_api_lib;
 pub mod routes;
-use crate::routes::ethernet::EthernetsApi;
+use crate::routes::{ethernet, host_info};
+// use crate::routes::ethernet::EthernetsApi;
+// use crate::routes::host_info::HostInfoApi;
 use actix_web::{web::Data, App, HttpServer};
 use std::net::Ipv4Addr;
 use utoipa::{openapi::Info, OpenApi};
@@ -29,7 +31,8 @@ async fn main() -> Result<(), std::io::Error> {
     #[derive(utoipa::OpenApi)]
     #[openapi(
         nest(
-            (path = "/ethernets", api = EthernetsApi)
+            (path = "/ethernets", api = ethernet::EthernetsApi),
+            (path = "/host-info", api = host_info::HostInfoApi)
         ),
     )]
     pub struct ApiDoc;
@@ -38,6 +41,7 @@ async fn main() -> Result<(), std::io::Error> {
     openapi.info = api_info;
 
     let ethernet_routes_store = Data::new(netplan::NetplanStore::default());
+    let host_info_routes_store = Data::new(models::host_info::HostInfoStore::default());
 
     HttpServer::new(move || {
         App::new()
@@ -46,6 +50,10 @@ async fn main() -> Result<(), std::io::Error> {
             .service(
                 utoipa_actix_web::scope("/ethernets")
                     .configure(routes::ethernet::configure(ethernet_routes_store.clone())),
+            )
+            .service(
+                utoipa_actix_web::scope("/host-info")
+                    .configure(routes::host_info::configure(host_info_routes_store.clone())),
             )
             .openapi_service(|api| {
                 SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", api)
