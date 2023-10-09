@@ -3,8 +3,6 @@ use std::{
     net::IpAddr,
 };
 
-use serde::{Deserialize, Serialize};
-
 use super::{nameservers::Nameservers, route::Route};
 
 pub trait Device {

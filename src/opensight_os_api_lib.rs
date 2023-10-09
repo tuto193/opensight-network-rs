@@ -72,25 +72,14 @@ impl OpenSightOSApiLib {
             .build()
     }
 
-    // pub fn app(&self, openapi: utoipa::openapi::OpenApi) -> AppExt {
-    //     let baby_clone = openapi;
-    //     App::new()
-    //         .into_utoipa_app()
-    //         .openapi(baby_clone)
-    //         .openapi_service(|api| {
-    //             SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", api)
-    //         })
-    //         .into_app()
-    // }
-    // pub async fn start(&self, openapi: utoipa::openapi::OpenApi) -> Result<(), std::io::Error> {
-    //     let baby_clone = openapi;
-    //     HttpServer::new(move || {
-    //         App::new().service(
-    //             SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", baby_clone.clone()),
-    //         )
-    //     })
-    //     .bind((Ipv4Addr::LOCALHOST, 8080))?
-    //     .run()
-    //     .await
+    // pub fn configure_app_scopes(
+    //     &self,
+    //     scopes: Vec<(String, Box<impl Default>, utoipa::openapi::OpenApi)>,
+    // ) -> App {
+    //     let mut app = App::new().into_utoipa_app().openapi()
+    //     for (path, default, api) in scopes {
+    //         app = app.configure_scope(path, default, api);
+    //     }
+    //     app
     // }
 }
