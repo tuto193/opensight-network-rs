@@ -64,12 +64,9 @@ impl Netplan {
                 if let Some(network) = netplan_config.get_mut("network") {
                     if let Some(ethernets) = network.get_mut("ethernets") {
                         if let Some(ethernets_map) = ethernets.as_mapping_mut() {
-                            for (ethernet, value) in ethernets_map.iter_mut() {
-                                if let Some(ethernet_map) = value.as_mapping_mut() {
-                                    ethernet_map.insert(
-                                        serde_yml::Value::String("name".to_string()),
-                                        ethernet.clone(),
-                                    );
+                            for (ethernet_name, actual_ethernet) in ethernets_map.iter_mut() {
+                                if let Some(ethernet_map) = actual_ethernet.as_mapping_mut() {
+                                    ethernet_map.insert("name".into(), ethernet_name.clone());
                                 }
                             }
                         }
