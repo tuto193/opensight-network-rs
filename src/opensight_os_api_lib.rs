@@ -1,9 +1,7 @@
-use std::net::Ipv4Addr;
-
-use actix_web::{App, HttpServer};
-use utoipa;
-use utoipa_actix_web::AppExt;
-use utoipa_swagger_ui::SwaggerUi;
+use utoipa::{
+    self,
+    openapi::{ContactBuilder, InfoBuilder, LicenseBuilder},
+};
 
 pub struct ContactInformation {
     pub name: String,
@@ -53,26 +51,46 @@ impl OpenSightOSApiLib {
             args,
         }
     }
+    pub fn build_info(&self) -> utoipa::openapi::Info {
+        InfoBuilder::new()
+            .title(self.title.clone())
+            .description(Some(self.description.clone()))
+            .version(self.version.clone())
+            .contact(Some(
+                ContactBuilder::new()
+                    .name(Some(self.contact.name.clone()))
+                    .email(Some(self.contact.email.clone()))
+                    .url(Some(self.contact.url.clone()))
+                    .build(),
+            ))
+            .license(Some(
+                LicenseBuilder::new()
+                    .name(self.license.name.clone())
+                    .url(Some(self.license.url.clone()))
+                    .build(),
+            ))
+            .build()
+    }
 
-    pub fn app(&self, openapi: utoipa::openapi::OpenApi) -> App {
-        let baby_clone = openapi;
-        App::new()
-            .into_utoipa_app()
-            .openapi(baby_clone)
-            .openapi_service(|api| {
-                SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", api)
-            })
-            .into_app()
-    }
-    pub async fn start(&self, openapi: utoipa::openapi::OpenApi) -> Result<(), std::io::Error> {
-        let baby_clone = openapi;
-        HttpServer::new(move || {
-            App::new().service(
-                SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", baby_clone.clone()),
-            )
-        })
-        .bind((Ipv4Addr::LOCALHOST, 8080))?
-        .run()
-        .await
-    }
+    // pub fn app(&self, openapi: utoipa::openapi::OpenApi) -> AppExt {
+    //     let baby_clone = openapi;
+    //     App::new()
+    //         .into_utoipa_app()
+    //         .openapi(baby_clone)
+    //         .openapi_service(|api| {
+    //             SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", api)
+    //         })
+    //         .into_app()
+    // }
+    // pub async fn start(&self, openapi: utoipa::openapi::OpenApi) -> Result<(), std::io::Error> {
+    //     let baby_clone = openapi;
+    //     HttpServer::new(move || {
+    //         App::new().service(
+    //             SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", baby_clone.clone()),
+    //         )
+    //     })
+    //     .bind((Ipv4Addr::LOCALHOST, 8080))?
+    //     .run()
+    //     .await
+    // }
 }

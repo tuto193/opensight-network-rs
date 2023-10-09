@@ -7,10 +7,11 @@ use crate::{
 };
 use actix_web::{
     delete, get, patch, post, put,
-    web::{Data, Json, Path, ServiceConfig},
+    web::{Data, Json, Path},
     HttpResponse, Responder,
 };
 use utoipa::{path as api_path, OpenApi};
+use utoipa_actix_web::service_config::ServiceConfig;
 
 #[derive(OpenApi)]
 #[openapi(paths(
