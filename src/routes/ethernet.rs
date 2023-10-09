@@ -10,7 +10,7 @@ use actix_web::{
     web::{Data, Json, Path, ServiceConfig},
     HttpResponse, Responder,
 };
-use utoipa::OpenApi;
+use utoipa::{path as api_path, OpenApi};
 
 #[derive(OpenApi)]
 #[openapi(paths(
@@ -80,12 +80,7 @@ pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
     }
 }
 
-#[utoipa::path(
-    operation_id = "show-all-ethernets",
-    responses(
-        (status = 200, description = "Retrieve all managed ethernets.")
-    )
-)]
+#[api_path(operation_id = "show-all-ethernets")]
 #[get("")]
 /// Retrieves all managed Ethernet entries.
 ///
@@ -106,12 +101,7 @@ pub async fn show_all_ethernets(netplan_store: Data<NetplanStore>) -> impl Respo
     HttpResponse::Ok().json(ethernets)
 }
 
-#[utoipa::path(
-    operation_id = "create-ethernet",
-    responses(
-        (status = 200, description = "Create a new Ethernet entry.")
-    )
-)]
+#[api_path(operation_id = "create-ethernet")]
 #[post("/<ethernet_name>")]
 pub async fn create_ethernet(
     netplan_store: Data<NetplanStore>,
@@ -133,13 +123,7 @@ pub async fn create_ethernet(
     }
 }
 
-#[utoipa::path(
-    operation_id = "get-ethernetsethernet",
-    responses(
-        (status = 200, description = "Get an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "get-ethernetsethernet")]
 #[get("/{ethernet_name}")]
 pub async fn get_ethernet(
     netplan_store: Data<NetplanStore>,
@@ -158,13 +142,7 @@ pub async fn get_ethernet(
     }
 }
 
-#[utoipa::path(
-    operation_id = "delete-ethernet",
-    responses(
-        (status = 200, description = "Delete an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "delete-ethernet")]
 #[post("/{ethernet_name}")]
 pub async fn delete_ethernet(
     netplan_store: Data<NetplanStore>,
@@ -183,13 +161,7 @@ pub async fn delete_ethernet(
     }
 }
 
-#[utoipa::path(
-    operation_id = "add-ethernet-ip-address",
-    responses(
-        (status = 200, description = "Add an IP address to an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "add-ethernet-ip-address")]
 #[post("/{ethernet_name}/addresses")]
 pub async fn add_ethernet_ip_address(
     netplan_store: Data<NetplanStore>,
@@ -224,13 +196,7 @@ pub async fn add_ethernet_ip_address(
     }
 }
 
-#[utoipa::path(
-    operation_id = "get-ethernet-ip-addresses",
-    responses(
-        (status = 200, description = "Get IP addresses from an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "get-ethernet-ip-addresses")]
 #[get("/{ethernet_name}/addresses")]
 pub async fn get_ethernet_ip_addresses(
     netplan_store: Data<NetplanStore>,
@@ -249,13 +215,7 @@ pub async fn get_ethernet_ip_addresses(
     }
 }
 
-#[utoipa::path(
-    operation_id = "delete-ethernet-ip-address",
-    responses(
-        (status = 200, description = "Delete an IP address from an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "delete-ethernet-ip-address")]
 #[delete("/{ethernet_name}/addresses/{ip_address}")]
 pub async fn delete_ethernet_ip_address(
     netplan_store: Data<NetplanStore>,
@@ -289,13 +249,7 @@ pub async fn delete_ethernet_ip_address(
     }
 }
 
-#[utoipa::path(
-    operation_id = "get-ethernet-nameservers",
-    responses(
-        (status = 200, description = "Show Nameservers from an existing ethernet"),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "get-ethernet-nameservers")]
 #[get("/{ethernet_name}/nameservers")]
 pub async fn get_ethernet_nameservers(
     netplan_store: Data<NetplanStore>,
@@ -314,13 +268,7 @@ pub async fn get_ethernet_nameservers(
     }
 }
 
-#[utoipa::path(
-    operation_id = "add-ethernet-nameservers-search",
-    responses(
-        (status = 200, description = "Add a nameserver to an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "add-ethernet-nameservers-search")]
 #[post("/{ethernet_name}/nameservers")]
 pub async fn add_ethernet_nameservers_search(
     netplan_store: Data<NetplanStore>,
@@ -350,13 +298,7 @@ pub async fn add_ethernet_nameservers_search(
     }
 }
 
-#[utoipa::path(
-    operation_id = "update-ethernet-dhcp4",
-    responses(
-        (status = 200, description = "Update dhcp4 setting on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "update-ethernet-dhcp4")]
 #[patch("/{ethernet_name}/dhcp4")]
 pub async fn update_ethernet_dhcp4(
     netplan_store: Data<NetplanStore>,
@@ -387,13 +329,7 @@ pub async fn update_ethernet_dhcp4(
     }
 }
 
-#[utoipa::path(
-    operation_id = "update-ethernet-dhcp6",
-    responses(
-        (status = 200, description = "Update dhcp6 setting on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "update-ethernet-dhcp6")]
 #[patch("/{ethernet_name}/dhcp6")]
 pub async fn update_ethernet_dhcp6(
     netplan_store: Data<NetplanStore>,
@@ -424,13 +360,7 @@ pub async fn update_ethernet_dhcp6(
     }
 }
 
-#[utoipa::path(
-    operation_id = "update-ethernet-accept-ra",
-    responses(
-        (status = 200, description = "Update accept_ra setting on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "update-ethernet-accept-ra")]
 #[patch("/{ethernet_name}/accept_ra")]
 pub async fn update_ethernet_accept_ra(
     netplan_store: Data<NetplanStore>,
@@ -458,13 +388,7 @@ pub async fn update_ethernet_accept_ra(
     }
 }
 
-#[utoipa::path(
-    operation_id = "update-ethernet-mtu",
-    responses(
-        (status = 200, description = "Update mtu setting on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "update-ethernet-mtu")]
 #[patch("/{ethernet_name}/mtu")]
 pub async fn update_ethernet_mtu(
     netplan_store: Data<NetplanStore>,
@@ -495,13 +419,7 @@ pub async fn update_ethernet_mtu(
     }
 }
 
-#[utoipa::path(
-    operation_id = "delete-ethernet-nameservers-search",
-    responses(
-        (status = 200, description = "Delete nameservers search domain on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "delete-ethernet-nameservers-search")]
 #[delete("/{ethernet_name}/nameservers/search")]
 pub async fn delete_ethernet_nameservers_search(
     netplan_store: Data<NetplanStore>,
@@ -531,13 +449,7 @@ pub async fn delete_ethernet_nameservers_search(
     }
 }
 
-#[utoipa::path(
-    operation_id = "add-ethernet-nameservers-address",
-    responses(
-        (status = 200, description = "Add nameserver address on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "add-ethernet-nameservers-address")]
 #[post("/{ethernet_name}/nameservers/address")]
 pub async fn add_ethernet_nameservers_address(
     netplan_store: Data<NetplanStore>,
@@ -568,13 +480,7 @@ pub async fn add_ethernet_nameservers_address(
     }
 }
 
-#[utoipa::path(
-    operation_id = "delete-ethernet-nameservers-address",
-    responses(
-        (status = 200, description = "Delete nameserver address on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "delete-ethernet-nameservers-address")]
 #[delete("/{ethernet_name}/nameservers/address")]
 pub async fn delete_ethernet_nameservers_address(
     netplan_store: Data<NetplanStore>,
@@ -605,13 +511,7 @@ pub async fn delete_ethernet_nameservers_address(
     }
 }
 
-#[utoipa::path(
-    operation_id = "get-ethernet-routes",
-    responses(
-        (status = 200, description = "Get routes from an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "get-ethernet-routes")]
 #[get("/{ethernet_name}/routes")]
 pub async fn get_ethernet_routes(
     netplan_store: Data<NetplanStore>,
@@ -630,13 +530,7 @@ pub async fn get_ethernet_routes(
     }
 }
 
-#[utoipa::path(
-    operation_id = "add-ethernet-route",
-    responses(
-        (status = 200, description = "Add a route on an existing Ethernet entry."),
-        (status = 404, description = "Ethernet entry not found.")
-    )
-)]
+#[api_path(operation_id = "add-ethernet-route")]
 #[post("/{ethernet_name}/routes")]
 /// Adds a route to an existing Ethernet entry.
 ///

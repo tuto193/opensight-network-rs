@@ -2,6 +2,7 @@ use std::net::Ipv4Addr;
 
 use actix_web::{App, HttpServer};
 use utoipa;
+use utoipa_actix_web::AppExt;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub struct ContactInformation {
@@ -53,6 +54,16 @@ impl OpenSightOSApiLib {
         }
     }
 
+    pub fn app(&self, openapi: utoipa::openapi::OpenApi) -> App {
+        let baby_clone = openapi;
+        App::new()
+            .into_utoipa_app()
+            .openapi(baby_clone)
+            .openapi_service(|api| {
+                SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", api)
+            })
+            .into_app()
+    }
     pub async fn start(&self, openapi: utoipa::openapi::OpenApi) -> Result<(), std::io::Error> {
         let baby_clone = openapi;
         HttpServer::new(move || {
