@@ -31,9 +31,6 @@ async fn main() -> Result<(), std::io::Error> {
         nest(
             (path = "/ethernets", api = EthernetsApi)
         ),
-        tags(
-            (name = "ethernets", description = "Operations related to Ethernet entries.")
-        )
     )]
     pub struct ApiDoc;
     let mut openapi = ApiDoc::openapi();
@@ -47,7 +44,7 @@ async fn main() -> Result<(), std::io::Error> {
             .into_utoipa_app()
             .openapi(openapi.clone())
             .service(
-                utoipa_actix_web::scope("/api/ethernets")
+                utoipa_actix_web::scope("/ethernets")
                     .configure(routes::ethernet::configure(ethernet_routes_store.clone())),
             )
             .openapi_service(|api| {

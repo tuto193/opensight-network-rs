@@ -61,23 +61,23 @@ pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
     |config: &mut ServiceConfig| {
         config
             .app_data(store)
-            .service(show_all_ethernets)
+            .service(add_ethernet_ip_address)
+            .service(add_ethernet_nameservers_address)
+            .service(add_ethernet_nameservers_search)
+            .service(create_ethernet)
+            .service(delete_ethernet)
+            .service(delete_ethernet_ip_address)
+            .service(delete_ethernet_nameservers_address)
+            .service(delete_ethernet_nameservers_search)
             .service(get_ethernet)
             .service(get_ethernet_ip_addresses)
-            .service(create_ethernet)
-            .service(add_ethernet_ip_address)
-            .service(delete_ethernet_ip_address)
-            .service(update_ethernet_dhcp6)
-            .service(update_ethernet_mtu)
-            .service(update_ethernet_accept_ra)
             .service(get_ethernet_nameservers)
-            .service(delete_ethernet)
+            .service(get_ethernet_routes)
+            .service(show_all_ethernets)
+            .service(update_ethernet_accept_ra)
             .service(update_ethernet_dhcp4)
-            .service(add_ethernet_nameservers_search)
-            .service(delete_ethernet_nameservers_search)
-            .service(add_ethernet_nameservers_address)
-            .service(delete_ethernet_nameservers_address)
-            .service(get_ethernet_routes);
+            .service(update_ethernet_dhcp6)
+            .service(update_ethernet_mtu);
     }
 }
 
