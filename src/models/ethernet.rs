@@ -6,20 +6,37 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use super::{
-    device::{Device, IpType, Mtu},
+    device::{Device, IpType},
     nameservers::Nameservers,
     route::Route,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Ethernet {
+    name: String,
     dhcp4: bool,
     dhcp6: bool,
-    mtu: Mtu,
+    mtu: usize,
     accept_ra: bool,
     routes: HashMap<IpType, Route>,
     addresses: HashSet<IpAddr>,
     nameservers: Nameservers,
+}
+
+impl Ethernet {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            dhcp4: false,
+            dhcp6: false,
+            mtu: 0,
+            accept_ra: false,
+            routes: HashMap::new(),
+            addresses: HashSet::new(),
+            nameservers: Nameservers::new(),
+        }
+    }
 }
 
 impl Device for Ethernet {
@@ -47,11 +64,11 @@ impl Device for Ethernet {
         self.accept_ra
     }
 
-    fn get_mtu(&self) -> Mtu {
+    fn get_mtu(&self) -> usize {
         self.mtu
     }
 
-    fn set_mtu(&mut self, mtu: Mtu) {
+    fn set_mtu(&mut self, mtu: usize) {
         self.mtu = mtu;
     }
 

@@ -9,3 +9,4 @@ rocket_okapi = { version = "0.8.0", features = ["swagger", "rapidoc"] }
 rocket = "0.5.0"
 serde = "1.0.210"
 serde_yaml = "0.9.34"
+lazy_static = "1.5.0"

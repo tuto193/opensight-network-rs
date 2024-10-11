@@ -5,8 +5,6 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::opensight_os_api_lib::Range;
-
 use super::{nameservers::Nameservers, route::Route};
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Serialize, Deserialize)]
@@ -14,8 +12,6 @@ pub enum IpType {
     V4,
     V6,
 }
-
-pub type Mtu = Range<0, 64000>;
 
 pub trait Device {
     // DHCP stuff
@@ -27,8 +23,8 @@ pub trait Device {
     fn set_accept_ra(&mut self, set: bool);
     fn get_accept_ra(&self) -> bool;
     // MTU
-    fn get_mtu(&self) -> Mtu;
-    fn set_mtu(&mut self, mtu: Mtu);
+    fn get_mtu(&self) -> usize;
+    fn set_mtu(&mut self, mtu: usize);
     // ADDRESSES
     fn get_addresses(&self) -> HashSet<IpAddr>;
     fn set_addresses(&mut self, addresses: HashSet<IpAddr>);

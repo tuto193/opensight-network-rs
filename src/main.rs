@@ -1,8 +1,10 @@
 mod models;
 mod netplan;
 mod opensight_os_api_lib;
+mod routes;
 #[macro_use]
 extern crate rocket;
+use crate::routes::ethernet::ETHERNET_ROUTES;
 
 use opensight_os_api_lib::{ContactInformation, LicenseInformation, OpenSightOSApiLib};
 use rocket_okapi::{openapi, openapi_get_routes};
@@ -19,7 +21,8 @@ use rocket_okapi::{openapi, openapi_get_routes};
 fn index() -> &'static str {
     "Hello, world!"
 }
-fn main() {
+
+fn config_api() -> OpenSightOSApiLib {
     let contact = ContactInformation {
         name: "Carlos A. Parra F.".to_string(),
         email: "tuto193@example.com".to_string(),
@@ -32,22 +35,29 @@ fn main() {
     };
 
     let title = "OpenSight Network API".to_string();
-    let description = "API for OpenSight Network".to_string();
+    let description = "REST API for OpenSight Network".to_string();
     let version = "0.1.0".to_string();
-    let routers = openapi_get_routes![index];
     let server_args = vec![];
     let args = vec![];
 
-    let api_lib = OpenSightOSApiLib::new(
+    OpenSightOSApiLib::new(
         contact,
         license,
         title,
         description,
         version,
-        routers,
         server_args,
         args,
-    );
+    )
+}
 
-    api_lib.launch();
+#[rocket::main]
+async fn main() {
+    let opensight_os_api_lib = config_api();
+    // rocket::build()
+    let rocket = rocket::build()
+        .mount("/", openapi_get_routes![index])
+        .mount("/ethernets", ETHERNET_ROUTES.clone());
+    opensight_os_api_lib.start(rocket).launch().await.unwrap();
+    // Add Routers
 }

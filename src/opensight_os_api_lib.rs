@@ -1,28 +1,8 @@
-use rocket::{Build, Route};
-use rocket_okapi::settings::UrlObject;
+use rocket::Build;
+use rocket_okapi::okapi::schemars::gen::SchemaSettings;
+use rocket_okapi::settings::{OpenApiSettings, UrlObject};
 use rocket_okapi::{rapidoc::*, swagger_ui::*};
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
-pub struct Range<const MIN: i32, const MAX: i32> {
-    value: i32,
-}
-
-impl<const MIN: i32, const MAX: i32> Range<MIN, MAX> {
-    // Constructor method to create a new Range
-    pub fn new(value: i32) -> Result<Self, String> {
-        if value >= MIN && value <= MAX {
-            Ok(Range { value })
-        } else {
-            Err(format!("Value {} is out of range ({}-{})", value, MIN, MAX))
-        }
-    }
-
-    // Getter method to access the value
-    pub fn value(&self) -> i32 {
-        self.value
-    }
-}
 pub struct ContactInformation {
     pub name: String,
     pub email: String,
@@ -42,7 +22,6 @@ pub struct OpenSightOSApiLib {
     pub version: String,
     pub server_args: Vec<String>,
     pub args: Vec<String>,
-    pub rocket: rocket::Rocket<Build>,
 }
 
 impl OpenSightOSApiLib {
@@ -52,37 +31,10 @@ impl OpenSightOSApiLib {
         title: String,
         description: String,
         version: String,
-        routers: Vec<Route>,
         server_args: Vec<String>,
         args: Vec<String>,
     ) -> Self {
-        let rocket = rocket::build()
-            .mount("/", routers.clone())
-            .mount(
-                "/docs",
-                make_swagger_ui(&SwaggerUIConfig {
-                    url: "/openapi.json".to_owned(),
-                    ..Default::default()
-                }),
-            )
-            .mount(
-                "/rapidoc",
-                make_rapidoc(&RapiDocConfig {
-                    general: GeneralConfig {
-                        spec_urls: vec![UrlObject::new("General", "/openapi.json")],
-                        ..Default::default()
-                    },
-                    hide_show: HideShowConfig {
-                        allow_spec_url_load: false,
-                        allow_spec_file_load: false,
-                        allow_search: false,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                }),
-            );
-
-        OpenSightOSApiLib {
+        Self {
             contact,
             license,
             title,
@@ -90,11 +42,16 @@ impl OpenSightOSApiLib {
             version,
             server_args,
             args,
-            rocket,
         }
     }
 
-    pub fn launch(self) {
-        self.rocket.launch();
+    pub fn start(&self, rocket: rocket::Rocket<Build>) -> rocket::Rocket<Build> {
+        rocket.mount(
+            "/docs",
+            make_swagger_ui(&SwaggerUIConfig {
+                url: "/openapi.json".to_owned(),
+                ..Default::default()
+            }),
+        )
     }
 }

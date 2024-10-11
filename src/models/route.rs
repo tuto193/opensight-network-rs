@@ -3,6 +3,7 @@ use std::net::IpAddr;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Route {
     pub origin: Option<IpAddr>,
     pub to: IpAddr,

@@ -3,6 +3,7 @@ use std::{collections::HashSet, net::IpAddr};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Nameservers {
     pub search: HashSet<String>,
     pub addresses: HashSet<IpAddr>,

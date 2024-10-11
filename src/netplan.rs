@@ -1,29 +1,11 @@
-use crate::models::ethernet::Ethernet;
-use serde::{Deserialize, Serialize};
+use crate::models::network::Network;
 use serde_yaml;
 use std::fs;
 use std::io::{self, ErrorKind};
 use std::process::{Command, Output};
 
-const NETPLAN_CONFIG_PATH: &str = "/path/to/netplan/config.yaml";
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum NetworkRenderer {
-    NetworkD,
-    NetworkManager,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Network {
-    pub version: usize,
-    pub renderer: NetworkRenderer,
-    pub ethernets: Vec<Ethernet>,
-    // pub vlans: Vec<Vlan>,
-}
-
-pub struct Netplan {
-    pub network: Network,
-}
+const NETPLAN_CONFIG_PATH: &str = "/etc/netplan/config.yaml";
+pub struct Netplan;
 
 impl Netplan {
     fn run_command(cmd: Vec<&str>) -> io::Result<Output> {
@@ -57,8 +39,8 @@ impl Netplan {
     }
 
     pub fn load_config() -> io::Result<Network> {
-        let config_content = fs::read_to_string(NETPLAN_CONFIG_PATH)?;
-        let mut netplan_config: serde_yaml::Value = serde_yaml::from_str(&config_content).unwrap_;
+        let config_content = fs::read_to_string(NETPLAN_CONFIG_PATH).unwrap_or("".to_string());
+        let mut netplan_config: serde_yaml::Value = serde_yaml::from_str(&config_content).unwrap();
 
         if let Some(network) = netplan_config.get_mut("network") {
             if let Some(ethernets) = network.get_mut("ethernets") {
@@ -75,16 +57,19 @@ impl Netplan {
             }
         }
 
-        let network: Network = serde_yaml::from_value(netplan_config["network"].clone())?;
+        let network: Network = serde_yaml::from_value(netplan_config["network"].clone())
+            .expect("Error: there was a problem while loading the config file.");
         Ok(network)
     }
 
     pub fn save_config(network: &Network) -> io::Result<()> {
-        let data = serde_yaml::to_value(network)?;
+        let data = serde_yaml::to_value(network)
+            .expect("Error: there was a problem while serializing the Network into YAML.");
         let mut network_data = serde_yaml::Mapping::new();
         network_data.insert(serde_yaml::Value::String("network".to_string()), data);
 
-        let yaml_string = serde_yaml::to_string(&network_data)?;
+        let yaml_string = serde_yaml::to_string(&network_data)
+            .unwrap_or_else(|_| panic!("Error: couldn't convert YAML into string."));
         fs::write(NETPLAN_CONFIG_PATH, yaml_string)?;
         Ok(())
     }
