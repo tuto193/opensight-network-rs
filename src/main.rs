@@ -4,11 +4,20 @@ mod opensight_os_api_lib;
 mod routes;
 #[macro_use]
 extern crate rocket;
-use crate::routes::ethernet::ETHERNET_ROUTES;
+use rocket::Build;
+use routes::ethernet::ETHERNET_ROUTES;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use opensight_os_api_lib::{ContactInformation, LicenseInformation, OpenSightOSApiLib};
-use rocket_okapi::{openapi, openapi_get_routes};
 
+#[derive(OpenApi)]
+#[openapi(paths(
+    index,
+    routes::ethernet::show_all_ethernets,
+    routes::ethernet::create_ethernet
+))]
+struct ApiDoc;
 /// # Function: index
 ///
 /// ## Description
@@ -16,7 +25,7 @@ use rocket_okapi::{openapi, openapi_get_routes};
 ///
 /// ## Returns
 /// A static string slice with the message "Hello, world!".
-#[openapi]
+#[utoipa::path(context_path = "/")]
 #[get("/")]
 fn index() -> &'static str {
     "Hello, world!"
@@ -28,7 +37,6 @@ fn config_api() -> OpenSightOSApiLib {
         email: "tuto193@example.com".to_string(),
         url: "https://example.com".to_string(),
     };
-
     let license = LicenseInformation {
         name: "MIT".to_string(),
         url: "https://opensource.org/licenses/MIT".to_string(),
@@ -56,8 +64,13 @@ async fn main() {
     let opensight_os_api_lib = config_api();
     // rocket::build()
     let rocket = rocket::build()
-        .mount("/", openapi_get_routes![index])
-        .mount("/ethernets", ETHERNET_ROUTES.clone());
-    opensight_os_api_lib.start(rocket).launch().await.unwrap();
+        .mount(
+            "/",
+            SwaggerUi::new("/docs/<_..>").url("/api-docs/openapi.json", ApiDoc::openapi()),
+        )
+        .mount("/ethernets", ETHERNET_ROUTES.clone())
+        .launch()
+        .await
+        .unwrap();
     // Add Routers
 }

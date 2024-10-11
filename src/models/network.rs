@@ -6,6 +6,7 @@ use super::ethernet::Ethernet;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum NetworkRenderer {
+    #[serde(rename = "networkd")]
     NetworkD,
     NetworkManager,
 }

@@ -1,7 +1,6 @@
 use rocket::Build;
-use rocket_okapi::okapi::schemars::gen::SchemaSettings;
-use rocket_okapi::settings::{OpenApiSettings, UrlObject};
-use rocket_okapi::{rapidoc::*, swagger_ui::*};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 pub struct ContactInformation {
     pub name: String,
@@ -45,13 +44,13 @@ impl OpenSightOSApiLib {
         }
     }
 
-    pub fn start(&self, rocket: rocket::Rocket<Build>) -> rocket::Rocket<Build> {
-        rocket.mount(
-            "/docs",
-            make_swagger_ui(&SwaggerUIConfig {
-                url: "/openapi.json".to_owned(),
-                ..Default::default()
-            }),
-        )
-    }
+    // pub fn start(
+    //     &self,
+    //     rocket: rocket::Rocket<Build>
+    // ) -> rocket::Rocket<Build> {
+    //     rocket.mount(
+    //         "/",
+    //         SwaggerUi::new("/docs/<_..>").url("/api-docs/openapi.json", api_doc::openapi()),
+    //     )
+    // }
 }

@@ -14,6 +14,7 @@ use super::{
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ethernet {
+    #[serde(skip_serializing)]
     name: String,
     dhcp4: bool,
     dhcp6: bool,

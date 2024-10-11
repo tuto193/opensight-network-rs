@@ -1,5 +1,5 @@
 use crate::models::network::Network;
-use serde_yaml;
+use serde_yml;
 use std::fs;
 use std::io::{self, ErrorKind};
 use std::process::{Command, Output};
@@ -39,37 +39,50 @@ impl Netplan {
     }
 
     pub fn load_config() -> io::Result<Network> {
-        let config_content = fs::read_to_string(NETPLAN_CONFIG_PATH).unwrap_or("".to_string());
-        let mut netplan_config: serde_yaml::Value = serde_yaml::from_str(&config_content).unwrap();
+        let config_content = fs::read_to_string(NETPLAN_CONFIG_PATH);
+        match config_content {
+            Err(_) => {
+                // The config file does not exist, so we create it.
+                let network = Network::new();
+                Self::save_config(&network)?;
+                Ok(network)
+            }
+            Ok(config_content) => {
+                // This should never fail, since the users are not allowed to
+                // modify the config file directly.
+                let mut netplan_config: serde_yml::Value =
+                    serde_yml::from_str(&config_content).unwrap();
 
-        if let Some(network) = netplan_config.get_mut("network") {
-            if let Some(ethernets) = network.get_mut("ethernets") {
-                if let Some(ethernets_map) = ethernets.as_mapping_mut() {
-                    for (ethernet, value) in ethernets_map.iter_mut() {
-                        if let Some(ethernet_map) = value.as_mapping_mut() {
-                            ethernet_map.insert(
-                                serde_yaml::Value::String("name".to_string()),
-                                ethernet.clone(),
-                            );
+                if let Some(network) = netplan_config.get_mut("network") {
+                    if let Some(ethernets) = network.get_mut("ethernets") {
+                        if let Some(ethernets_map) = ethernets.as_mapping_mut() {
+                            for (ethernet, value) in ethernets_map.iter_mut() {
+                                if let Some(ethernet_map) = value.as_mapping_mut() {
+                                    ethernet_map.insert(
+                                        serde_yml::Value::String("name".to_string()),
+                                        ethernet.clone(),
+                                    );
+                                }
+                            }
                         }
                     }
                 }
+
+                let network: Network = serde_yml::from_value(netplan_config["network"].clone())
+                    .expect("Error: there was a problem while loading the parsed yaml string.");
+                Ok(network)
             }
         }
-
-        let network: Network = serde_yaml::from_value(netplan_config["network"].clone())
-            .expect("Error: there was a problem while loading the config file.");
-        Ok(network)
     }
 
     pub fn save_config(network: &Network) -> io::Result<()> {
-        let data = serde_yaml::to_value(network)
-            .expect("Error: there was a problem while serializing the Network into YAML.");
-        let mut network_data = serde_yaml::Mapping::new();
-        network_data.insert(serde_yaml::Value::String("network".to_string()), data);
+        // let data = serde_yml::to_value(network)
+        // .expect("Error: there was a problem while serializing the Network into YAML.");
+        // let mut network_data = serde_yml::Mapping::new();
+        // network_data.insert(serde_yml::Value::String("network".to_string()), data);
 
-        let yaml_string = serde_yaml::to_string(&network_data)
-            .unwrap_or_else(|_| panic!("Error: couldn't convert YAML into string."));
+        let yaml_string = serde_yml::to_string(&network)
+            .expect("Error: couldn't serialize network into YAML string.");
         fs::write(NETPLAN_CONFIG_PATH, yaml_string)?;
         Ok(())
     }
