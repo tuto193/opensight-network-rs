@@ -1,5 +1,7 @@
-use rocket::Build;
-use utoipa::OpenApi;
+use std::net::Ipv4Addr;
+
+use actix_web::{App, HttpServer};
+use utoipa::openapi::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub struct ContactInformation {
@@ -44,13 +46,15 @@ impl OpenSightOSApiLib {
         }
     }
 
-    // pub fn start(
-    //     &self,
-    //     rocket: rocket::Rocket<Build>
-    // ) -> rocket::Rocket<Build> {
-    //     rocket.mount(
-    //         "/",
-    //         SwaggerUi::new("/docs/<_..>").url("/api-docs/openapi.json", api_doc::openapi()),
-    //     )
-    // }
+    pub async fn start(&self, openapi: &OpenApi) -> Result<(), std::io::Error> {
+        let baby_clone = openapi.clone();
+        HttpServer::new(move || {
+            App::new().service(
+                SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", baby_clone.clone()),
+            )
+        })
+        .bind((Ipv4Addr::UNSPECIFIED, 8080))?
+        .run()
+        .await
+    }
 }

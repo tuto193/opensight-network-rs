@@ -2,22 +2,21 @@ mod models;
 mod netplan;
 mod opensight_os_api_lib;
 mod routes;
-#[macro_use]
-extern crate rocket;
-use rocket::Build;
-use routes::ethernet::ETHERNET_ROUTES;
+use actix_web::{get, HttpResponse, Responder};
 use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
 
 use opensight_os_api_lib::{ContactInformation, LicenseInformation, OpenSightOSApiLib};
 
 #[derive(OpenApi)]
-#[openapi(paths(
-    index,
-    routes::ethernet::show_all_ethernets,
-    routes::ethernet::create_ethernet
-))]
-struct ApiDoc;
+#[openapi(
+    nest(
+        (path = "/ethernets", api = ethernets::EthernesApi)
+    ),
+    tags(
+        (name = "ethernets", description = "Operations related to Ethernet entries.")
+    )
+)]
+pub struct ApiDoc;
 /// # Function: index
 ///
 /// ## Description
@@ -27,8 +26,8 @@ struct ApiDoc;
 /// A static string slice with the message "Hello, world!".
 #[utoipa::path(context_path = "/")]
 #[get("/")]
-fn index() -> &'static str {
-    "Hello, world!"
+async fn index() -> impl Responder {
+    HttpResponse::Ok().json("Hello, world!")
 }
 
 fn config_api() -> OpenSightOSApiLib {
@@ -59,18 +58,11 @@ fn config_api() -> OpenSightOSApiLib {
     )
 }
 
-#[rocket::main]
-async fn main() {
+#[actix_web::main]
+async fn main() -> Result<(), std::io::Error> {
     let opensight_os_api_lib = config_api();
+    let openapi = ApiDoc::openapi();
+    opensight_os_api_lib.launch(openapi).await?
     // rocket::build()
-    let rocket = rocket::build()
-        .mount(
-            "/",
-            SwaggerUi::new("/docs/<_..>").url("/api-docs/openapi.json", ApiDoc::openapi()),
-        )
-        .mount("/ethernets", ETHERNET_ROUTES.clone())
-        .launch()
-        .await
-        .unwrap();
     // Add Routers
 }

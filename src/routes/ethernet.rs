@@ -1,7 +1,10 @@
-use lazy_static::lazy_static;
-use rocket::Route;
-
 use crate::{models::ethernet::Ethernet, netplan::Netplan};
+use actix_web::{delete, get, patch, post, put, HttpResponse, Responder};
+use utoipa::OpenApi;
+
+#[derive(OpenApi)]
+#[openapi(paths(ethernet::show_all_ethernerts, ethernet::create_ethernet))]
+struct EthernesApi;
 
 /// Retrieves and displays all Ethernet entries from the Netplan configuration.
 ///
@@ -12,13 +15,13 @@ use crate::{models::ethernet::Ethernet, netplan::Netplan};
 /// # Errors
 ///
 /// This function will panic if the Netplan configuration cannot be loaded properly.
-#[utoipa::path(context_path = "/ethernets")]
+#[utoipa::path(context_path = "/")]
 #[get("/")]
-pub fn show_all_ethernets() -> String {
+pub async fn show_all_ethernets() -> impl Responder {
     let ethernets = Netplan::load_config()
         .expect("Error: Netplan could not load config properly.")
         .ethernets;
-    format!("{ethernets:#?}")
+    HttpResponse::Ok().json(ethernets)
 }
 
 /// Creates a new Ethernet entry in the Netplan configuration.
@@ -36,13 +39,9 @@ pub fn show_all_ethernets() -> String {
 /// This function will panic if the Netplan configuration cannot be loaded properly.
 #[utoipa::path(context_path = "/ethernets")]
 #[patch("/<ethernet_name>")]
-pub fn create_ethernet(ethernet_name: String) -> String {
+pub async fn create_ethernet(ethernet_name: String) -> String {
     let result = Ethernet::new(ethernet_name.clone());
     let mut network = Netplan::load_config().unwrap();
     network.ethernets.insert(ethernet_name, result.clone());
     format!("{result:#?}")
-}
-
-lazy_static! {
-    pub static ref ETHERNET_ROUTES: Vec<Route> = routes![show_all_ethernets, create_ethernet];
 }
