@@ -7,7 +7,7 @@ authos = "Carlos A. Parra F. (tuto193)"
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"] }
 serde_yml = "0.0.12"
-utoipa = { version = "4.2.3", features = ["actix_extras"] }
-utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
+utoipa = { version = "5.0.0", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "8.0.0", features = ["actix-web"] }
 actix-web = "4.9.0"
 futures = "0.3.31"

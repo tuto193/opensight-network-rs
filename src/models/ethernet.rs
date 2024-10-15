@@ -20,7 +20,7 @@ pub struct Ethernet {
     dhcp6: bool,
     mtu: usize,
     accept_ra: bool,
-    routes: HashMap<IpType, Route>,
+    routes: HashMap<String, Route>,
     addresses: HashSet<IpAddr>,
     nameservers: Nameservers,
 }
@@ -93,11 +93,35 @@ impl Device for Ethernet {
         self.nameservers = nameservers;
     }
 
-    fn get_routes(&self) -> HashMap<IpType, Route> {
+    fn get_routes(&self) -> HashMap<String, Route> {
         self.routes.clone()
     }
 
-    fn set_routes(&mut self, ip_type: IpType, route: Route) {
-        self.routes.insert(ip_type, route);
+    fn add_nameservers_search(&mut self, search: String) {
+        self.nameservers.add_search(search);
+    }
+
+    fn add_nameservers_address(&mut self, address: IpAddr) {
+        self.nameservers.add_address(address);
+    }
+
+    fn delete_nameservers_search(&mut self, search: &str) -> bool {
+        self.nameservers.remove_search(search)
+    }
+
+    fn delete_nameservers_address(&mut self, address: &IpAddr) -> bool {
+        self.nameservers.remove_address(address)
+    }
+
+    fn add_route(&mut self, to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>) {
+        todo!()
+    }
+
+    fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>) {
+        todo!()
+    }
+
+    fn delete_route(&mut self, route_id: String) -> bool {
+        todo!()
     }
 }

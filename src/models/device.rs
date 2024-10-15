@@ -32,7 +32,13 @@ pub trait Device {
     // NAMESERVERS
     fn get_nameservers(&self) -> Nameservers;
     fn add_nameservers(&mut self, nameservers: Nameservers);
+    fn add_nameservers_search(&mut self, search: String);
+    fn add_nameservers_address(&mut self, address: IpAddr);
+    fn delete_nameservers_search(&mut self, search: &str) -> bool;
+    fn delete_nameservers_address(&mut self, address: &IpAddr) -> bool;
     // ROUTES
-    fn get_routes(&self) -> HashMap<IpType, Route>;
-    fn set_routes(&mut self, ip_type: IpType, route: Route);
+    fn get_routes(&self) -> HashMap<String, Route>;
+    fn add_route(&mut self, to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>);
+    fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>);
+    fn delete_route(&mut self, route_id: String) -> bool;
 }

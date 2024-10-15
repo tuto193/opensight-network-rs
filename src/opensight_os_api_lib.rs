@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use actix_web::{App, HttpServer};
-use utoipa::openapi::OpenApi;
+use utoipa;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub struct ContactInformation {
@@ -27,14 +27,21 @@ pub struct OpenSightOSApiLib {
 
 impl OpenSightOSApiLib {
     pub fn new(
-        contact: ContactInformation,
-        license: LicenseInformation,
         title: String,
         description: String,
         version: String,
         server_args: Vec<String>,
         args: Vec<String>,
     ) -> Self {
+        let contact = ContactInformation {
+            name: "Greenbone AG".to_string(),
+            email: "info@greenbone.net".to_string(),
+            url: "https://www.greenbone.net".to_string(),
+        };
+        let license = LicenseInformation {
+            name: "GNU Affero General Public License v3.0 or later".to_string(),
+            url: "https://www.gnu.org/licenses/agpl-3.0-standalone.html".to_string(),
+        };
         Self {
             contact,
             license,
@@ -46,7 +53,7 @@ impl OpenSightOSApiLib {
         }
     }
 
-    pub async fn start(&self, openapi: &OpenApi) -> Result<(), std::io::Error> {
+    pub async fn start(&self, openapi: utoipa::openapi::OpenApi) -> Result<(), std::io::Error> {
         let baby_clone = openapi.clone();
         HttpServer::new(move || {
             App::new().service(
