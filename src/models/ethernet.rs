@@ -5,24 +5,22 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-    device::{Device, IpType},
-    nameservers::Nameservers,
-    route::Route,
-};
+use super::{device::Device, nameservers::Nameservers, route::Route};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ethernet {
     #[serde(skip_serializing)]
-    name: String,
-    dhcp4: bool,
-    dhcp6: bool,
-    mtu: usize,
-    accept_ra: bool,
-    routes: HashMap<String, Route>,
-    addresses: HashSet<IpAddr>,
-    nameservers: Nameservers,
+    pub name: String,
+    pub dhcp4: bool,
+    pub dhcp6: bool,
+    pub mtu: usize,
+    pub accept_ra: bool,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub routes: HashMap<String, Route>,
+    #[serde(skip_serializing_if = "HashSet::is_empty")]
+    pub addresses: HashSet<IpAddr>,
+    pub nameservers: Nameservers,
 }
 
 impl Ethernet {
@@ -37,6 +35,10 @@ impl Ethernet {
             addresses: HashSet::new(),
             nameservers: Nameservers::new(),
         }
+    }
+
+    pub fn get_name(&self) -> &String {
+        &self.name
     }
 }
 

@@ -20,6 +20,12 @@ pub struct Network {
     // pub vlans: Vec<Vlan>,
 }
 
+impl Default for Network {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Network {
     pub fn new() -> Self {
         Self {
@@ -27,5 +33,13 @@ impl Network {
             renderer: NetworkRenderer::NetworkD,
             ethernets: HashMap::new(),
         }
+    }
+
+    pub fn get_ethernets(&self) -> &HashMap<String, Ethernet> {
+        &self.ethernets
+    }
+
+    pub fn add_ethernet(&mut self, ethernet: Ethernet) {
+        self.ethernets.insert(ethernet.get_name().clone(), ethernet);
     }
 }

@@ -1,3 +1,4 @@
+use crate::misc::{deserialize_ip, deserialize_ip_option, serialize_ip, serialize_ip_option};
 use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
@@ -5,8 +6,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Route {
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_ip_option",
+        deserialize_with = "deserialize_ip_option"
+    )]
     pub origin: Option<IpAddr>,
+    #[serde(serialize_with = "serialize_ip", deserialize_with = "deserialize_ip")]
     pub to: IpAddr,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_ip_option",
+        deserialize_with = "deserialize_ip_option"
+    )]
     pub via: Option<IpAddr>,
 }
 
