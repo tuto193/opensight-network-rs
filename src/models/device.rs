@@ -29,11 +29,12 @@ pub trait Device {
     fn add_nameservers(&mut self, nameservers: Nameservers);
     fn add_nameservers_search(&mut self, search: String);
     fn add_nameservers_address(&mut self, address: IpAddr);
-    fn delete_nameservers_search(&mut self, search: &str) -> bool;
+    fn delete_nameservers_search(&mut self, search: String) -> bool;
     fn delete_nameservers_address(&mut self, address: &IpAddr) -> bool;
     // ROUTES
     fn get_routes(&self) -> HashMap<String, Route>;
     fn add_route(&mut self, to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>);
+    fn add_built_route(&mut self, route: Route);
     fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>);
     fn delete_route(&mut self, route_id: String) -> bool;
     fn delete_all_routes(&mut self);

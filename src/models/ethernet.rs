@@ -108,7 +108,7 @@ impl Device for Ethernet {
         self.nameservers.add_address(address);
     }
 
-    fn delete_nameservers_search(&mut self, search: &str) -> bool {
+    fn delete_nameservers_search(&mut self, search: String) -> bool {
         self.nameservers.remove_search(search)
     }
 
@@ -119,6 +119,10 @@ impl Device for Ethernet {
     fn add_route(&mut self, to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>) {
         let to_add = Route::new(to, via, from);
         self.routes.insert(Uuid::new_v4().to_string(), to_add);
+    }
+
+    fn add_built_route(&mut self, route: Route) {
+        self.routes.insert(Uuid::new_v4().to_string(), route);
     }
 
     fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>) {

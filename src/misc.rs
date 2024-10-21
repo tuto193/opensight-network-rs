@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    net::{self, AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
+    net::{self, AddrParseError, IpAddr},
 };
 
 use serde::{Deserializer, Serialize};

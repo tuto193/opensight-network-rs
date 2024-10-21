@@ -41,16 +41,16 @@ impl Nameservers {
         self.addresses.insert(address);
     }
 
-    pub fn remove_search(&mut self, search: &str) -> bool {
-        self.search.remove(search)
+    pub fn remove_search(&mut self, search: String) -> bool {
+        self.search.remove(&search)
     }
 
     pub fn remove_address(&mut self, address: &IpAddr) -> bool {
         self.addresses.remove(address)
     }
 
-    pub fn contains_search(&self, search: &str) -> bool {
-        self.search.contains(search)
+    pub fn contains_search(&self, search: String) -> bool {
+        self.search.contains(&search)
     }
 
     pub fn contains_address(&self, address: &IpAddr) -> bool {
