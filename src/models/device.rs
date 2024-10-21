@@ -7,12 +7,6 @@ use serde::{Deserialize, Serialize};
 
 use super::{nameservers::Nameservers, route::Route};
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Serialize, Deserialize)]
-pub enum IpType {
-    V4,
-    V6,
-}
-
 pub trait Device {
     // DHCP stuff
     fn set_dhcp4(&mut self, set: bool);
@@ -29,6 +23,7 @@ pub trait Device {
     fn get_addresses(&self) -> HashSet<IpAddr>;
     fn set_addresses(&mut self, addresses: HashSet<IpAddr>);
     fn add_address(&mut self, address: IpAddr);
+    fn delete_address(&mut self, address: &IpAddr) -> bool;
     // NAMESERVERS
     fn get_nameservers(&self) -> Nameservers;
     fn add_nameservers(&mut self, nameservers: Nameservers);
@@ -41,4 +36,5 @@ pub trait Device {
     fn add_route(&mut self, to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>);
     fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>);
     fn delete_route(&mut self, route_id: String) -> bool;
+    fn delete_all_routes(&mut self);
 }

@@ -75,7 +75,14 @@ impl Netplan {
         }
     }
 
+    pub fn backup_config() -> io::Result<()> {
+        let backup_path = format!("{}.bak", NETPLAN_CONFIG_PATH);
+        fs::copy(NETPLAN_CONFIG_PATH, backup_path)?;
+        Ok(())
+    }
+
     pub fn save_config(network: &Network) -> io::Result<()> {
+        Self::backup_config()?;
         // let data = serde_yml::to_value(network)
         // .expect("Error: there was a problem while serializing the Network into YAML.");
         // let mut network_data = serde_yml::Mapping::new();
@@ -85,6 +92,11 @@ impl Netplan {
             .expect("Error: couldn't serialize network into YAML string.");
         fs::write(NETPLAN_CONFIG_PATH, yaml_string)?;
         Ok(())
+    }
+
+    pub fn restore_config() {
+        let backup_path = format!("{}.bak", NETPLAN_CONFIG_PATH);
+        fs::copy(backup_path, NETPLAN_CONFIG_PATH).unwrap();
     }
 
     pub fn get_diff(compact: bool) -> io::Result<String> {

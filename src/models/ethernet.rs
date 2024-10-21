@@ -2,6 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     net::IpAddr,
 };
+use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
 
@@ -116,14 +117,23 @@ impl Device for Ethernet {
     }
 
     fn add_route(&mut self, to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>) {
-        todo!()
+        let to_add = Route::new(to, via, from);
+        self.routes.insert(Uuid::new_v4().to_string(), to_add);
     }
 
     fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>) {
-        todo!()
+        self.add_route("::/0".parse().unwrap(), via, from)
     }
 
     fn delete_route(&mut self, route_id: String) -> bool {
-        todo!()
+        self.routes.remove(&route_id).is_some()
+    }
+
+    fn delete_address(&mut self, address: &IpAddr) -> bool {
+        self.addresses.remove(address)
+    }
+
+    fn delete_all_routes(&mut self) {
+        self.routes = HashMap::new();
     }
 }

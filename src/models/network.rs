@@ -4,14 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use super::ethernet::Ethernet;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NetworkRenderer {
     #[serde(rename = "networkd")]
     NetworkD,
     NetworkManager,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Network {
     pub version: usize,
@@ -41,5 +41,9 @@ impl Network {
 
     pub fn add_ethernet(&mut self, ethernet: Ethernet) {
         self.ethernets.insert(ethernet.get_name().clone(), ethernet);
+    }
+
+    pub fn set_ethernets(&mut self, ethernets: HashMap<String, Ethernet>) {
+        self.ethernets = ethernets;
     }
 }

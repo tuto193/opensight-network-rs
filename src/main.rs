@@ -1,3 +1,5 @@
+// #![warn(missing_docs)]
+// #![warn(clippy::missing_ docs_in_private_items)]
 pub mod misc;
 pub mod models;
 pub mod netplan;

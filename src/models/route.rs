@@ -23,7 +23,7 @@ pub struct Route {
 }
 
 impl Route {
-    pub fn new(origin: Option<IpAddr>, to: IpAddr, via: Option<IpAddr>) -> Self {
+    pub fn new(to: IpAddr, via: Option<IpAddr>, origin: Option<IpAddr>) -> Self {
         Route { origin, to, via }
     }
 
