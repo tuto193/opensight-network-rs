@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::net::{AddrParseError, IpAddr};
 
 use crate::{
     models::{device::Device, ethernet::Ethernet, route::Route},
@@ -20,7 +20,7 @@ use utoipa::{IntoParams, OpenApi, ToSchema};
     add_ethernet_ip_address,
     remove_ethernet_address,
     add_ethernet_route,
-    remove_ethernet_route
+    delete_ethernet_route
 ))]
 pub struct EthernetsApi;
 
@@ -91,7 +91,7 @@ pub async fn get_ethernet(ethernet_name: String) -> impl Responder {
     if let Some(ethernet) = ethernet {
         HttpResponse::Ok().json(ethernet)
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -108,7 +108,7 @@ pub async fn delete_ethernet(ethernet_name: String) -> impl Responder {
     if let Some(ethernet) = ethernet {
         HttpResponse::Ok().json(ethernet)
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -120,8 +120,8 @@ pub async fn delete_ethernet(ethernet_name: String) -> impl Responder {
 )]
 #[post("/{ethernet_name}/addresses")]
 pub async fn add_ethernet_ip_address(ethernet_name: String, ip_address: String) -> impl Responder {
-    let to_add: IpAddr = match ip_address.parse() {
-        Err(_) => return HttpResponse::BadRequest().finish(),
+    let to_add = match ip_address.parse::<IpAddr>() {
+        Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
         Ok(ip) => ip,
     };
     let mut network = Netplan::load_config().unwrap();
@@ -140,7 +140,7 @@ pub async fn add_ethernet_ip_address(ethernet_name: String, ip_address: String) 
             },
         }
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -152,12 +152,15 @@ pub async fn add_ethernet_ip_address(ethernet_name: String, ip_address: String) 
 )]
 #[get("/{ethernet_name}/addresses")]
 pub async fn get_ethernet_ip_addresses(ethernet_name: String) -> impl Responder {
-    let network = Netplan::load_config().unwrap();
+    let network = match Netplan::load_config() {
+        Err(err) => return HttpResponse::InternalServerError().body((err.to_string())),
+        Ok(n) => n,
+    };
     let ethernet = network.get_ethernets().get(&ethernet_name);
     if let Some(ethernet) = ethernet {
         HttpResponse::Ok().json(ethernet.get_addresses())
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -188,7 +191,7 @@ pub async fn delete_ethernet_ip_address(
             },
         }
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -205,7 +208,7 @@ pub async fn get_ethernet_nameservers(ethernet_name: String) -> impl Responder {
     if let Some(ethernet) = ethernet {
         HttpResponse::Ok().json(ethernet.get_nameservers())
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -232,7 +235,7 @@ pub async fn add_nameservers_search(ethernet_name: String, search: String) -> im
             },
         }
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -260,7 +263,7 @@ pub async fn update_ethernet_dhcp4(ethernet_name: String, dhcp4: Json<bool>) -> 
             },
         }
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
@@ -442,6 +445,19 @@ pub async fn delete_ethernet_nameservers_address(
     }
 }
 
+pub async fn get_ethernet_routes(ethernet_name: String) -> impl Responder {
+    let network = match Netplan::load_config() {
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+        Ok(n) => n,
+    };
+    let ethernet = network.get_ethernets().get(&ethernet_name);
+    if let Some(ethernet) = ethernet {
+        HttpResponse::Ok().json(ethernet.get_routes())
+    } else {
+        HttpResponse::NotFound().finish()
+    }
+}
+
 #[utoipa::path(
     responses(
         (status = 200, description = "Add a route on an existing Ethernet entry."),
@@ -449,13 +465,31 @@ pub async fn delete_ethernet_nameservers_address(
     )
 )]
 #[post("/{ethernet_name}/routes")]
-pub async fn add_ethernet_route(ethernet_name: String, route: Json<Route>) -> impl Responder {
-    let route = route.into_inner();
+pub async fn add_ethernet_route(
+    ethernet_name: String,
+    to: String,
+    via: String,
+    from: String,
+) -> impl Responder {
+    let to: IpAddr = match to.parse() {
+        Ok(to) => to,
+        Err(_) => {
+            return HttpResponse::BadRequest().finish();
+        }
+    };
+    let via: Option<IpAddr> = match via.parse() {
+        Ok(ip) => Some(ip),
+        Err(_) => None,
+    };
+    let from: Option<IpAddr> = match from.parse() {
+        Ok(ip) => Some(ip),
+        Err(_) => None,
+    };
     let mut network = Netplan::load_config().unwrap();
     let mut ethernets = network.ethernets.clone();
     let ethernet = ethernets.remove(&ethernet_name);
     if let Some(mut ethernet) = ethernet {
-        ethernet.add_built_route(route);
+        ethernet.add_route(to, via, from);
         ethernets.insert(ethernet_name.clone(), ethernet.clone());
         network.set_ethernets(ethernets);
         match Netplan::save_config(&network) {
@@ -463,6 +497,6 @@ pub async fn add_ethernet_route(ethernet_name: String, route: Json<Route>) -> im
             Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
         }
     } else {
-        HttpResponse::NotFound().finish()
+        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }

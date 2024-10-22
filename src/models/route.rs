@@ -2,9 +2,8 @@ use crate::misc::{deserialize_ip, deserialize_ip_option, serialize_ip, serialize
 use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Route {
     #[serde(
