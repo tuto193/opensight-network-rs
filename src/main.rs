@@ -37,6 +37,9 @@ fn config_api() -> Info {
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
+    // Adjust logging
+    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
     // The OpenApi main struct that should hold the whole documentation of the API
     #[derive(utoipa::OpenApi)]
