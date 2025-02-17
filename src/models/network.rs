@@ -30,7 +30,7 @@ impl Network {
     pub fn new() -> Self {
         Self {
             version: 2,
-            renderer: NetworkRenderer::NetworkManager,
+            renderer: NetworkRenderer::NetworkD,
             ethernets: HashMap::new(),
         }
     }

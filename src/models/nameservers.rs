@@ -29,20 +29,20 @@ impl Nameservers {
         }
     }
 
-    pub fn set_search(&self) -> &HashSet<String> {
-        &self.search
+    // pub fn set_search(&self) -> &HashSet<String> {
+    //     &self.search
+    // }
+
+    pub fn add_search(&mut self, search: &String) {
+        self.search.insert(search.clone());
     }
 
-    pub fn add_search(&mut self, search: String) {
-        self.search.insert(search);
+    pub fn add_address(&mut self, address: &IpAddr) {
+        self.addresses.insert(address.clone());
     }
 
-    pub fn add_address(&mut self, address: IpAddr) {
-        self.addresses.insert(address);
-    }
-
-    pub fn remove_search(&mut self, search: String) -> bool {
-        self.search.remove(&search)
+    pub fn remove_search(&mut self, search: &String) -> bool {
+        self.search.remove(search)
     }
 
     pub fn remove_address(&mut self, address: &IpAddr) -> bool {

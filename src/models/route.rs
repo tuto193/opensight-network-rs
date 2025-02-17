@@ -11,7 +11,7 @@ pub struct Route {
         serialize_with = "serialize_ip_option",
         deserialize_with = "deserialize_ip_option"
     )]
-    pub origin: Option<IpAddr>,
+    pub from: Option<IpAddr>,
     #[serde(serialize_with = "serialize_ip", deserialize_with = "deserialize_ip")]
     pub to: IpAddr,
     #[serde(
@@ -23,30 +23,30 @@ pub struct Route {
 }
 
 impl Route {
-    pub fn new(to: IpAddr, via: Option<IpAddr>, origin: Option<IpAddr>) -> Self {
-        Route { origin, to, via }
+    pub fn new(to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>) -> Self {
+        Route { from, to, via }
     }
 
-    pub fn set_origin(&mut self, origin: IpAddr) {
-        self.origin = Some(origin);
-    }
+    // pub fn set_origin(&mut self, origin: IpAddr) {
+    //     self.from = Some(origin);
+    // }
 
-    pub fn clear_origin(&mut self) {
-        self.origin = None;
-    }
+    // pub fn clear_origin(&mut self) {
+    //     self.from = None;
+    // }
 
-    pub fn set_via(&mut self, via: IpAddr) {
-        self.via = Some(via);
-    }
+    // pub fn set_via(&mut self, via: IpAddr) {
+    //     self.via = Some(via);
+    // }
 
-    pub fn clear_via(&mut self) {
-        self.via = None;
-    }
+    // pub fn clear_via(&mut self) {
+    //     self.via = None;
+    // }
 
     pub fn display(&self) {
         println!("Route:");
-        if let Some(origin) = &self.origin {
-            println!("  Origin: {}", origin);
+        if let Some(origin) = &self.from {
+            println!("  From: {}", origin);
         } else {
             println!("  Origin: None");
         }
@@ -56,5 +56,24 @@ impl Route {
         } else {
             println!("  Via: None");
         }
+    }
+
+    pub fn id(&self) -> String {
+        format!(
+            "{}-{}-{}",
+            match self.from {
+                Some(from) => from.to_string(),
+                None => "from".to_string(),
+            },
+            if self.to.is_unspecified() {
+                "default".to_string()
+            } else {
+                self.to.to_string()
+            },
+            match self.via {
+                Some(via) => via.to_string(),
+                None => "via".to_string(),
+            }
+        )
     }
 }

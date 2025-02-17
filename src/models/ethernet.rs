@@ -2,11 +2,11 @@ use std::{
     collections::{HashMap, HashSet},
     net::IpAddr,
 };
-use uuid::Uuid;
 
 use serde::{Deserialize, Serialize};
 
 use super::{device::Device, nameservers::Nameservers, route::Route};
+use crate::custom_types::BoundedU32;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -15,13 +15,16 @@ pub struct Ethernet {
     pub name: String,
     pub dhcp4: bool,
     pub dhcp6: bool,
-    pub mtu: usize,
-    pub accept_ra: bool,
+    pub mtu: Option<BoundedU32<68, 64000>>,
+    pub ipv6_mtu: Option<BoundedU32<1280, 64000>>,
+    pub accept_ra: Option<bool>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub routes: HashMap<String, Route>,
     #[serde(skip_serializing_if = "HashSet::is_empty")]
     pub addresses: HashSet<IpAddr>,
     pub nameservers: Nameservers,
+    #[serde(skip_serializing)]
+    pub dynamic_addresses: Vec<String>,
 }
 
 impl Ethernet {
@@ -30,11 +33,13 @@ impl Ethernet {
             name,
             dhcp4: false,
             dhcp6: false,
-            mtu: 0,
-            accept_ra: false,
+            mtu: None,
+            ipv6_mtu: None,
+            accept_ra: None,
             routes: HashMap::new(),
             addresses: HashSet::new(),
             nameservers: Nameservers::new(),
+            dynamic_addresses: Vec::new(),
         }
     }
 
@@ -68,24 +73,16 @@ impl Device for Ethernet {
         self.accept_ra
     }
 
-    fn get_mtu(&self) -> usize {
+    fn get_mtu(&self) -> u32 {
         self.mtu
     }
 
-    fn set_mtu(&mut self, mtu: usize) {
+    fn set_mtu(&mut self, mtu: u32) {
         self.mtu = mtu;
     }
 
     fn get_addresses(&self) -> HashSet<IpAddr> {
         self.addresses.clone()
-    }
-
-    fn set_addresses(&mut self, addresses: HashSet<IpAddr>) {
-        self.addresses = addresses;
-    }
-
-    fn add_address(&mut self, address: IpAddr) {
-        self.addresses.insert(address);
     }
 
     fn get_nameservers(&self) -> super::nameservers::Nameservers {
@@ -116,19 +113,6 @@ impl Device for Ethernet {
         self.nameservers.remove_address(address)
     }
 
-    fn add_route(&mut self, to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>) {
-        let to_add = Route::new(to, via, from);
-        self.routes.insert(Uuid::new_v4().to_string(), to_add);
-    }
-
-    fn add_built_route(&mut self, route: Route) {
-        self.routes.insert(Uuid::new_v4().to_string(), route);
-    }
-
-    fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>) {
-        self.add_route("::/0".parse().unwrap(), via, from)
-    }
-
     fn delete_route(&mut self, route_id: String) -> bool {
         self.routes.remove(&route_id).is_some()
     }
@@ -139,5 +123,17 @@ impl Device for Ethernet {
 
     fn delete_all_routes(&mut self) {
         self.routes = HashMap::new();
+    }
+
+    fn add_addresses(&mut self, address: Vec<IpAddr>) {
+        todo!()
+    }
+
+    fn get_dynamic_addresses(&self) -> HashSet<IpAddr> {
+        todo!()
+    }
+
+    fn add_route(&mut self, route: Route) {
+        todo!()
     }
 }
