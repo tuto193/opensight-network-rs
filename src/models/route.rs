@@ -27,22 +27,6 @@ impl Route {
         Route { from, to, via }
     }
 
-    // pub fn set_origin(&mut self, origin: IpAddr) {
-    //     self.from = Some(origin);
-    // }
-
-    // pub fn clear_origin(&mut self) {
-    //     self.from = None;
-    // }
-
-    // pub fn set_via(&mut self, via: IpAddr) {
-    //     self.via = Some(via);
-    // }
-
-    // pub fn clear_via(&mut self) {
-    //     self.via = None;
-    // }
-
     pub fn display(&self) {
         println!("Route:");
         if let Some(origin) = &self.from {

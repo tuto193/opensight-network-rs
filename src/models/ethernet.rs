@@ -1,30 +1,35 @@
 use std::{
     collections::{HashMap, HashSet},
-    net::IpAddr,
+    net::{IpAddr, SocketAddr},
 };
 
 use serde::{Deserialize, Serialize};
 
-use super::{device::Device, nameservers::Nameservers, route::Route};
-use crate::custom_types::BoundedU32;
+use super::{
+    device::{Device, MTU, MTUV6},
+    nameservers::Nameservers,
+    route::Route,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ethernet {
     #[serde(skip_serializing)]
-    pub name: String,
-    pub dhcp4: bool,
-    pub dhcp6: bool,
-    pub mtu: Option<BoundedU32<68, 64000>>,
-    pub ipv6_mtu: Option<BoundedU32<1280, 64000>>,
-    pub accept_ra: Option<bool>,
+    name: String,
+    dhcp4: bool,
+    dhcp6: bool,
+    mtu: Option<MTU>,
+    ipv6_mtu: Option<MTUV6>,
+    accept_ra: Option<bool>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
-    pub routes: HashMap<String, Route>,
+    routes: HashMap<String, Route>,
     #[serde(skip_serializing_if = "HashSet::is_empty")]
-    pub addresses: HashSet<IpAddr>,
-    pub nameservers: Nameservers,
+    addresses: HashSet<SocketAddr>,
+    nameservers: Nameservers,
     #[serde(skip_serializing)]
-    pub dynamic_addresses: Vec<String>,
+    dynamic_addresses: Vec<String>,
+    #[serde(skip_serializing)]
+    system_state: Option<HashMap<String, serde_yml::Value>>,
 }
 
 impl Ethernet {
@@ -40,10 +45,11 @@ impl Ethernet {
             addresses: HashSet::new(),
             nameservers: Nameservers::new(),
             dynamic_addresses: Vec::new(),
+            system_state: None,
         }
     }
 
-    pub fn get_name(&self) -> &String {
+    pub fn name(&self) -> &String {
         &self.name
     }
 }
@@ -65,23 +71,23 @@ impl Device for Ethernet {
         self.dhcp6 = set;
     }
 
-    fn set_accept_ra(&mut self, set: bool) {
+    fn set_accept_ra(&mut self, set: Option<bool>) {
         self.accept_ra = set;
     }
 
-    fn get_accept_ra(&self) -> bool {
+    fn get_accept_ra(&self) -> Option<bool> {
         self.accept_ra
     }
 
-    fn get_mtu(&self) -> u32 {
+    fn get_mtu(&self) -> Option<MTU> {
         self.mtu
     }
 
-    fn set_mtu(&mut self, mtu: u32) {
+    fn set_mtu(&mut self, mtu: Option<MTU>) {
         self.mtu = mtu;
     }
 
-    fn get_addresses(&self) -> HashSet<IpAddr> {
+    fn get_addresses(&self) -> HashSet<SocketAddr> {
         self.addresses.clone()
     }
 
@@ -97,15 +103,20 @@ impl Device for Ethernet {
         self.routes.clone()
     }
 
-    fn add_nameservers_search(&mut self, search: String) {
-        self.nameservers.add_search(search);
+    fn add_nameservers_search(&mut self, search: &Vec<String>) {
+        for s in search {
+            self.nameservers.add_search(s);
+        }
     }
 
-    fn add_nameservers_address(&mut self, address: IpAddr) {
-        self.nameservers.add_address(address);
+    fn add_nameservers_address(&mut self, address: &Vec<IpAddr>) {
+        for address in address {
+            self.nameservers.add_address(address);
+        }
+        // self.nameservers.add_address(address);
     }
 
-    fn delete_nameservers_search(&mut self, search: String) -> bool {
+    fn delete_nameservers_search(&mut self, search: &String) -> bool {
         self.nameservers.remove_search(search)
     }
 
@@ -113,11 +124,11 @@ impl Device for Ethernet {
         self.nameservers.remove_address(address)
     }
 
-    fn delete_route(&mut self, route_id: String) -> bool {
-        self.routes.remove(&route_id).is_some()
+    fn delete_route(&mut self, route_id: &String) -> bool {
+        self.routes.remove(route_id).is_some()
     }
 
-    fn delete_address(&mut self, address: &IpAddr) -> bool {
+    fn delete_address(&mut self, address: &SocketAddr) -> bool {
         self.addresses.remove(address)
     }
 
@@ -125,15 +136,33 @@ impl Device for Ethernet {
         self.routes = HashMap::new();
     }
 
-    fn add_addresses(&mut self, address: Vec<IpAddr>) {
-        todo!()
+    fn add_addresses(&mut self, address: &Vec<SocketAddr>) {
+        for a in address {
+            self.addresses.insert(a.clone());
+        }
     }
 
-    fn get_dynamic_addresses(&self) -> HashSet<IpAddr> {
-        todo!()
+    fn get_dynamic_addresses(&self) -> Vec<String> {
+        self.dynamic_addresses.clone()
     }
 
-    fn add_route(&mut self, route: Route) {
-        todo!()
+    fn add_route(&mut self, route: &Route) {
+        self.routes.insert(route.id(), route.clone());
+    }
+
+    fn set_ipv6_mtu(&mut self, mtu: Option<MTUV6>) {
+        self.ipv6_mtu = mtu;
+    }
+
+    fn get_ipv6_mtu(&self) -> Option<MTUV6> {
+        self.ipv6_mtu
+    }
+
+    fn get_system_state(&self) -> Option<HashMap<String, serde_yml::Value>> {
+        self.system_state.clone()
+    }
+
+    fn set_system_state(&mut self, state: Option<HashMap<String, serde_yml::Value>>) {
+        self.system_state = state;
     }
 }

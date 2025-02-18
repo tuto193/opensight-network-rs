@@ -39,8 +39,9 @@ impl Network {
         &self.ethernets
     }
 
-    pub fn add_ethernet(&mut self, ethernet: Ethernet) {
-        self.ethernets.insert(ethernet.get_name().clone(), ethernet);
+    pub fn add_ethernet(&mut self, ethernet: &Ethernet) {
+        self.ethernets
+            .insert(ethernet.get_name().clone(), ethernet.clone());
     }
 
     pub fn set_ethernets(&mut self, ethernets: HashMap<String, Ethernet>) {

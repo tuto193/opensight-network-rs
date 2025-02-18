@@ -1,4 +1,4 @@
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy)]
 pub struct BoundedU32<const MIN: u32, const MAX: u32>(u32);
 
 impl<const MIN: u32, const MAX: u32> BoundedU32<MIN, MAX> {

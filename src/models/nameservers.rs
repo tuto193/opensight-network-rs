@@ -29,10 +29,6 @@ impl Nameservers {
         }
     }
 
-    // pub fn set_search(&self) -> &HashSet<String> {
-    //     &self.search
-    // }
-
     pub fn add_search(&mut self, search: &String) {
         self.search.insert(search.clone());
     }
