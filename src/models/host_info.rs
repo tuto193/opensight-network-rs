@@ -26,11 +26,11 @@ impl HostInfo {
         Ok(result)
     }
 
-    pub fn get_hostname() -> Result<String, std::io::Error> {
+    pub fn get_hostname(&self) -> Result<String, std::io::Error> {
         Self::_run_hostnamectl(&["hostname"])
     }
 
-    pub fn set_hostname(hostname: &String) {
+    pub fn set_hostname(&self, hostname: &String) {
         Self::_run_hostnamectl(&[hostname]);
     }
 }

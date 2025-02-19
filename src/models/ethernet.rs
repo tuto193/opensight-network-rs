@@ -49,8 +49,8 @@ impl Ethernet {
         }
     }
 
-    pub fn name(&self) -> &String {
-        &self.name
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 }
 

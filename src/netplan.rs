@@ -2,12 +2,12 @@ use crate::models::device::Device;
 use crate::models::ethernet::Ethernet;
 use crate::models::network::Network;
 use crate::models::route::Route;
-use actix_web::{HttpResponse, Responder, Result};
+use actix_web::{HttpResponse, Result};
 use serde_yml;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, ErrorKind};
-use std::process::{Command, Output};
+use std::process::Command;
 use std::sync::Mutex;
 
 const NETPLAN_CONFIG_PATH: &str = "/etc/netplan/01-network-conf.yaml";

@@ -3,14 +3,20 @@ use actix_web::{
     web::{Data, Json},
     HttpResponse, Responder,
 };
-use utoipa::{path as api_path, OpenApi};
+use serde::{Deserialize, Serialize};
+use utoipa::{path as api_path, OpenApi, ToSchema};
 use utoipa_actix_web::service_config::ServiceConfig;
 
-use crate::models::host_info::{HostInfo, HostInfoStore};
+use crate::models::host_info::HostInfoStore;
 
 #[derive(OpenApi)]
 #[openapi(paths(get_host_info, update_host_info,))]
 pub struct HostInfoApi;
+
+#[derive(Serialize, Deserialize, ToSchema)]
+struct InputHostInfo {
+    pub hostname: Option<String>,
+}
 
 /// Configures the Actix web service with the provided `HostInfoStore`.
 ///
@@ -54,25 +60,15 @@ pub async fn get_host_info(store: Data<HostInfoStore>) -> impl Responder {
 
 #[api_path(operation_id = "update-host-information")]
 #[patch("")]
-/// Updates the host information.
-///
-/// This function handles PATCH requests to update the current host information
-/// stored in the `HostInfoStore`.
-///
-/// # Arguments
-///
-/// * `store` - A `Data` instance containing the `HostInfoStore`.
-/// * `new_host_info` - A `Json` instance containing the new `HostInfo`.
-///
-/// # Returns
-///
-/// An `HttpResponse` containing the updated host information in JSON format.
 pub async fn update_host_info(
     store: Data<HostInfoStore>,
-    new_host_info: Json<HostInfo>,
-) -> impl Responder {
-    let new_host_info = new_host_info.into_inner();
-    let mut store = store.host_info.lock().unwrap();
-    store.set_hostname(new_host_info.get_hostname().clone());
-    HttpResponse::Ok().json(&*store)
+    new_host_info: Json<InputHostInfo>,
+) -> HttpResponse {
+    let new_host_info: InputHostInfo = new_host_info.into_inner();
+    let store = store.host_info.lock().unwrap();
+    if let Some(hostname) = new_host_info.hostname {
+        store.set_hostname(&hostname);
+        return HttpResponse::Ok().json(hostname);
+    }
+    HttpResponse::NotFound().json("Hostname not found")
 }
