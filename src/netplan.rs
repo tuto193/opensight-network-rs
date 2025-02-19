@@ -21,8 +21,8 @@ pub struct NetplanStore {
 }
 
 impl Netplan {
-    fn run_command(cmd: Vec<&str>) -> io::Result<String> {
-        let output = Command::new("netplan").args(&cmd).output()?;
+    fn run_command(args: &[&str]) -> io::Result<String> {
+        let output = Command::new("netplan").args(args).output()?;
 
         if !output.status.success() {
             eprintln!("Command failed: {:?}", output);
@@ -34,8 +34,7 @@ impl Netplan {
     }
 
     pub fn apply(&self) -> io::Result<()> {
-        let cmd = vec!["apply"];
-        Self::run_command(cmd)?;
+        Self::run_command(&["apply"])?;
         Ok(())
     }
 
@@ -61,11 +60,11 @@ impl Netplan {
     fn interfaces_expecting_dhcp_address(network: &Network) -> Vec<String> {
         let mut result = vec![];
         for (eth_name, eth) in network.ethernets.iter() {
-            if eth.dhcp4
-                || (eth.dhcp6
-                    && eth.accept_ra.is_some()
+            if eth.get_dhcp4()
+                || (eth.get_dhcp6()
+                    && eth.get_accept_ra().is_some()
                     && eth
-                        .accept_ra
+                        .get_accept_ra()
                         .expect("Accept RA is set and it should be a bool."))
             {
                 result.push(eth_name.clone());
@@ -127,7 +126,7 @@ impl Netplan {
         }
     }
     pub fn tryout(&self) -> io::Result<()> {
-        let cmd = vec![
+        let cmd = &[
             "try",
             "--timeout",
             "5",
@@ -182,7 +181,7 @@ impl Netplan {
     }
 
     pub fn load_config(&self) -> io::Result<Network> {
-        let status_yaml: serde_yml::Mapping = serde_yml::from_str(&Self::run_command(vec![
+        let status_yaml: serde_yml::Mapping = serde_yml::from_str(&Self::run_command(&[
             "status", "--format", "yaml", "--all",
         ])?)
         .unwrap();
@@ -195,6 +194,7 @@ impl Netplan {
             Err(_) => {
                 // The config file does not exist, so we create it.
                 // Check for existing ethernets in /sys/class/net
+                let mut result = Network::new();
                 let mut base_interface: Option<Ethernet> = None;
                 if fs::read_dir("/sys/class/net")?.any(|entry| {
                     entry
@@ -206,10 +206,19 @@ impl Netplan {
                 }) {
                     let mut iface = Ethernet::new("eth0".to_string());
                     iface.set_dhcp4(true);
+                    if let Some(eth0_diff) = diff.get("eth0") {
+                        iface.set_system_state(serde_yml::from_value(
+                            eth0_diff.get("system_state")
+                                .expect("Ethernet should have system_state")
+                                .clone(),
+                        ).expect("Mapping from system state should be made (at least) an empty mapping."));
+                    }
+                    if let Some(eth0_addresses) = interfaces_dynamic_addresses.get("eth0") {
+                        iface.set_dynamic_addresses(eth0_addresses);
+                    }
                     base_interface = Some(iface);
                 }
 
-                let mut result = Network::new();
                 if let Some(base_interface) = base_interface {
                     result.add_ethernet(&base_interface);
                 }
@@ -302,7 +311,7 @@ impl Netplan {
     }
 
     pub fn get_diff(&self) -> io::Result<HashMap<String, serde_yml::Mapping>> {
-        let cmd = vec!["status", "--diff-only", "--format", "yaml"];
+        let cmd = &["status", "--diff-only", "--format", "yaml"];
         let mut result: HashMap<String, serde_yml::Mapping> = HashMap::new();
         let output = Self::run_command(cmd)?;
         let yaml_output: serde_yml::Mapping = serde_yml::from_str(&output).unwrap();
@@ -330,23 +339,59 @@ impl Netplan {
         self.apply_with_diff()
     }
 
-    pub fn get_all_ethernets(&self) -> Vec<String> {
-        let output = Self::run_command(vec!["status", "--diff-only", "--format", "yaml"])
-            .expect("Netplan status command should not fail");
-        let yaml_output: serde_yml::Mapping = serde_yml::from_str(&output).unwrap();
-        let managed_interfaces = yaml_output
+    pub fn get_all_ethernets(&self) -> io::Result<Vec<String>> {
+        let output = Self::run_command(&["status", "--diff-only", "--format", "yaml"])?;
+        let mut result: Vec<String> = Vec::new();
+        let yaml_output: serde_yml::Mapping = serde_yml::from_str(&output)
+            .expect("Netplan status command should be YAML, but failed to parse");
+        // Normal interfaces
+        yaml_output
             .get("interfaces")
             .expect("Output of diff should contain managed interfaces")
             .as_mapping()
-            .unwrap();
-        managed_interfaces
+            .unwrap()
             .iter()
-            .for_each(|(interface, interface_data)| {
-                let iface_date = interface_data.as_mapping().unwrap();
-                if let Some(system_state) = iface_date.get("system_state") {
+            .for_each(|(interface, _interface_data)| {
+                if interface.as_str().unwrap().starts_with("eth") {
                     result.push(interface.as_str().unwrap().to_string());
                 }
             });
-        result
+        // missing_interfaces_netplan
+        yaml_output
+            .get("missing_interfaces_netplan")
+            .expect("Output of diff should contain missing interfaces")
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .for_each(|(interface, _interface_data)| {
+                if interface.as_str().unwrap().starts_with("eth") {
+                    result.push(interface.as_str().unwrap().to_string());
+                }
+            });
+        // missing_interfaces_system
+        yaml_output
+            .get("missing_interfaces_system")
+            .expect("Output of diff should contain missing system interfaces")
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .for_each(|(interface, _interface_data)| {
+                if interface.as_str().unwrap().starts_with("eth") {
+                    result.push(interface.as_str().unwrap().to_string());
+                }
+            });
+        // missing_interfaces_system
+        yaml_output
+            .get("missing_interfaces_system")
+            .expect("Output of diff should contain missing system interfaces")
+            .as_mapping()
+            .unwrap()
+            .iter()
+            .for_each(|(interface, _interface_data)| {
+                if interface.as_str().unwrap().starts_with("eth") {
+                    result.push(interface.as_str().unwrap().to_string());
+                }
+            });
+        Ok(result)
     }
 }

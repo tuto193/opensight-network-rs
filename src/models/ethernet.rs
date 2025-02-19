@@ -29,7 +29,7 @@ pub struct Ethernet {
     #[serde(skip_serializing)]
     dynamic_addresses: Vec<String>,
     #[serde(skip_serializing)]
-    system_state: Option<HashMap<String, serde_yml::Value>>,
+    system_state: HashMap<String, serde_yml::Value>,
 }
 
 impl Ethernet {
@@ -45,7 +45,7 @@ impl Ethernet {
             addresses: HashSet::new(),
             nameservers: Nameservers::new(),
             dynamic_addresses: Vec::new(),
-            system_state: None,
+            system_state: HashMap::new(),
         }
     }
 
@@ -158,11 +158,15 @@ impl Device for Ethernet {
         self.ipv6_mtu
     }
 
-    fn get_system_state(&self) -> Option<HashMap<String, serde_yml::Value>> {
+    fn get_system_state(&self) -> HashMap<String, serde_yml::Value> {
         self.system_state.clone()
     }
 
-    fn set_system_state(&mut self, state: Option<HashMap<String, serde_yml::Value>>) {
+    fn set_system_state(&mut self, state: HashMap<String, serde_yml::Value>) {
         self.system_state = state;
+    }
+
+    fn set_dynamic_addresses(&mut self, addresses: &Vec<String>) {
+        self.dynamic_addresses = addresses.clone();
     }
 }

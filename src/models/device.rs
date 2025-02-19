@@ -28,6 +28,7 @@ pub trait Device {
     // fn add_address(&mut self, address: IpAddr);
     fn add_addresses(&mut self, address: &Vec<SocketAddr>);
     fn get_dynamic_addresses(&self) -> Vec<String>;
+    fn set_dynamic_addresses(&mut self, addresses: &Vec<String>);
     fn delete_address(&mut self, address: &SocketAddr) -> bool;
     // NAMESERVERS
     fn get_nameservers(&self) -> Nameservers;
@@ -44,6 +45,6 @@ pub trait Device {
     // fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>);
     fn delete_route(&mut self, route_id: &String) -> bool;
     fn delete_all_routes(&mut self);
-    fn get_system_state(&self) -> Option<HashMap<String, serde_yml::Value>>;
-    fn set_system_state(&mut self, state: Option<HashMap<String, serde_yml::Value>>);
+    fn get_system_state(&self) -> HashMap<String, serde_yml::Value>;
+    fn set_system_state(&mut self, state: HashMap<String, serde_yml::Value>);
 }
