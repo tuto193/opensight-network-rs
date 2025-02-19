@@ -1,6 +1,9 @@
 use std::net::IpAddr;
 
-use crate::{models::device::Device, models::ethernet::Ethernet, netplan::NetplanStore};
+use crate::{
+    models::{device::Device, ethernet::Ethernet, input_models::InputRoute, route::Route},
+    netplan::NetplanStore,
+};
 use actix_web::{
     delete, get, patch, post,
     web::{Data, Json},
@@ -58,18 +61,18 @@ pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
         config
             .app_data(store)
             .service(add_ethernet_ip_address)
-            .service(add_ethernet_nameservers_address)
+            .service(add_ethernet_nameservers_addresses)
             .service(add_ethernet_nameservers_search)
-            .service(create_ethernet)
+            .service(create_or_update_ethernet)
             .service(delete_ethernet)
-            .service(delete_ethernet_ip_address)
-            .service(delete_ethernet_nameservers_address)
+            .service(delete_ethernet_ip_addresses)
+            .service(delete_ethernet_nameservers_addresses)
             .service(delete_ethernet_nameservers_search)
             .service(get_ethernet)
             .service(get_ethernet_ip_addresses)
             .service(get_ethernet_nameservers)
             .service(get_ethernet_routes)
-            .service(show_all_ethernets)
+            .service(get_all_ethernets)
             .service(update_ethernet_accept_ra)
             .service(update_ethernet_dhcp4)
             .service(update_ethernet_dhcp6)
@@ -88,7 +91,7 @@ pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
 /// # Returns
 /// - `HttpResponse::Ok` with a JSON body containing the Ethernet entries if successful.
 /// - `HttpResponse::InternalServerError` with an error message if there is an issue loading the configuration.
-pub async fn show_all_ethernets(netplan_store: Data<NetplanStore>) -> impl Responder {
+pub async fn get_all_ethernets(netplan_store: Data<NetplanStore>) -> impl Responder {
     let netplan = netplan_store.netplan.lock().unwrap();
     let network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
@@ -113,7 +116,7 @@ pub async fn show_all_ethernets(netplan_store: Data<NetplanStore>) -> impl Respo
 /// # Returns
 /// - `HttpResponse::Ok` with a JSON body containing the created Ethernet entry if successful.
 /// - `HttpResponse::InternalServerError` if there is an issue loading, saving, or applying the configuration.
-pub async fn create_ethernet(
+pub async fn create_or_update_ethernet(
     netplan_store: Data<NetplanStore>,
     ethernet_name: String,
 ) -> impl Responder {
@@ -159,40 +162,6 @@ pub async fn get_ethernet(
         Ok(network) => network,
     };
     let ethernet = network.get_ethernets().get(&ethernet_name);
-    if let Some(ethernet) = ethernet {
-        HttpResponse::Ok().json(ethernet)
-    } else {
-        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
-    }
-}
-
-#[api_path(operation_id = "delete-ethernet")]
-#[post("/{ethernet_name}")]
-/// Deletes a specific Ethernet entry by name.
-///
-/// This function loads the network configuration using Netplan, searches for the specified Ethernet entry,
-/// and removes it from the configuration. If the Ethernet entry is found, it is deleted and returned as a JSON response.
-/// If the Ethernet entry is not found, it returns a 404 Not Found response. If there is an error loading the configuration,
-/// it returns an internal server error with the error message.
-///
-/// # Arguments
-/// - `netplan_store`: A `Data<NetplanStore>` instance that holds the Netplan configuration store.
-/// - `ethernet_name`: The name of the Ethernet entry to be deleted.
-///
-/// # Returns
-/// - `HttpResponse::Ok` with a JSON body containing the deleted Ethernet entry if found.
-/// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-/// - `HttpResponse::InternalServerError` with an error message if there is an issue loading the configuration.
-pub async fn delete_ethernet(
-    netplan_store: Data<NetplanStore>,
-    ethernet_name: String,
-) -> impl Responder {
-    let netplan = netplan_store.netplan.lock().unwrap();
-    let mut network = match netplan.load_config() {
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
-        Ok(network) => network,
-    };
-    let ethernet = network.ethernets.remove(&ethernet_name);
     if let Some(ethernet) = ethernet {
         HttpResponse::Ok().json(ethernet)
     } else {
@@ -303,7 +272,7 @@ pub async fn get_ethernet_ip_addresses(
 /// - `HttpResponse::BadRequest` if the provided IP address is invalid.
 /// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
 /// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-pub async fn delete_ethernet_ip_address(
+pub async fn delete_ethernet_ip_addresses(
     netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     ip_address: String,
@@ -413,187 +382,6 @@ pub async fn add_ethernet_nameservers_search(
     }
 }
 
-#[api_path(operation_id = "update-ethernet-dhcp4")]
-#[patch("/{ethernet_name}/dhcp4")]
-/// Updates the DHCPv4 setting for a specific Ethernet entry.
-///
-/// This function loads the network configuration using Netplan, searches for the specified Ethernet entry,
-/// and updates its DHCPv4 setting. If the Ethernet entry is found, the DHCPv4 setting is updated, and the
-/// updated configuration is saved and applied. If the Ethernet entry is not found, a 404 response is returned.
-///
-/// # Arguments
-/// - `netplan_store`: A `Data<NetplanStore>` instance that holds the Netplan configuration store.
-/// - `ethernet_name`: The name of the Ethernet entry whose DHCPv4 setting is to be updated.
-/// - `dhcp4`: A JSON body containing the new DHCPv4 setting (true or false).
-///
-/// # Returns
-/// - `HttpResponse::Ok` with a JSON body containing the updated Ethernet entry if successful.
-/// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
-/// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-pub async fn update_ethernet_dhcp4(
-    netplan_store: Data<NetplanStore>,
-    ethernet_name: String,
-    dhcp4: Json<bool>,
-) -> impl Responder {
-    let netplan = netplan_store.netplan.lock().unwrap();
-    let dhcp4 = dhcp4.into_inner();
-    let mut network = match netplan.load_config() {
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
-        Ok(network) => network,
-    };
-    let mut ethernets = network.ethernets.clone();
-    let ethernet = ethernets.remove(&ethernet_name);
-    if let Some(mut ethernet) = ethernet {
-        ethernet.set_dhcp4(dhcp4);
-        ethernets.insert(ethernet_name.clone(), ethernet.clone());
-        network.set_ethernets(ethernets);
-        match netplan.save_config(&network) {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match netplan.apply() {
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-                Ok(_) => HttpResponse::Ok().json(ethernet),
-            },
-        }
-    } else {
-        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
-    }
-}
-
-#[api_path(operation_id = "update-ethernet-dhcp6")]
-#[patch("/{ethernet_name}/dhcp6")]
-/// Updates the DHCPv6 setting for a specific Ethernet entry.
-///
-/// This function loads the network configuration using Netplan, searches for the specified Ethernet entry,
-/// and updates its DHCPv6 setting. If the Ethernet entry is found, the DHCPv6 setting is updated, and the
-/// updated configuration is saved and applied. If the Ethernet entry is not found, a 404 response is returned.
-///
-/// # Arguments
-/// - `netplan_store`: A `Data<NetplanStore>` instance that holds the Netplan configuration store.
-/// - `ethernet_name`: The name of the Ethernet entry whose DHCPv6 setting is to be updated.
-/// - `dhcp6`: A JSON body containing the new DHCPv6 setting (true or false).
-///
-/// # Returns
-/// - `HttpResponse::Ok` with a JSON body containing the updated Ethernet entry if successful.
-/// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
-/// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-pub async fn update_ethernet_dhcp6(
-    netplan_store: Data<NetplanStore>,
-    ethernet_name: String,
-    dhcp6: Json<bool>,
-) -> impl Responder {
-    let netplan = netplan_store.netplan.lock().unwrap();
-    let dhcp6 = dhcp6.into_inner();
-    let mut network = match netplan.load_config() {
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
-        Ok(network) => network,
-    };
-    let mut ethernets = network.ethernets.clone();
-    let ethernet = ethernets.remove(&ethernet_name);
-    if let Some(mut ethernet) = ethernet {
-        ethernet.set_dhcp6(dhcp6);
-        ethernets.insert(ethernet_name.clone(), ethernet.clone());
-        network.set_ethernets(ethernets);
-        match netplan.save_config(&network) {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match netplan.apply() {
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-                Ok(_) => HttpResponse::Ok().json(ethernet),
-            },
-        }
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[api_path(operation_id = "update-ethernet-accept-ra")]
-#[patch("/{ethernet_name}/accept_ra")]
-/// Updates the accept_ra setting for a specific Ethernet entry.
-///
-/// This function loads the network configuration using Netplan, searches for the specified Ethernet entry,
-/// and updates its accept_ra setting. If the Ethernet entry is found, the accept_ra setting is updated, and the
-/// updated configuration is saved and applied. If the Ethernet entry is not found, a 404 response is returned.
-///
-/// # Arguments
-/// - `netplan_store`: A `Data<NetplanStore>` instance that holds the Netplan configuration store.
-/// - `ethernet_name`: The name of the Ethernet entry whose accept_ra setting is to be updated.
-/// - `accept_ra`: A JSON body containing the new accept_ra setting (true or false).
-///
-/// # Returns
-/// - `HttpResponse::Ok` with a JSON body containing the updated Ethernet entry if successful.
-/// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
-/// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-pub async fn update_ethernet_accept_ra(
-    netplan_store: Data<NetplanStore>,
-    ethernet_name: String,
-    accept_ra: Json<bool>,
-) -> impl Responder {
-    let netplan = netplan_store.netplan.lock().unwrap();
-    let accept_ra = accept_ra.into_inner();
-    let mut network = match netplan.load_config() {
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
-        Ok(network) => network,
-    };
-    let mut ethernets = network.ethernets.clone();
-    let ethernet = ethernets.remove(&ethernet_name);
-    if let Some(mut ethernet) = ethernet {
-        ethernet.set_accept_ra(accept_ra);
-        ethernets.insert(ethernet_name.clone(), ethernet.clone());
-        network.set_ethernets(ethernets);
-        match netplan.save_config(&network) {
-            Ok(_) => HttpResponse::Ok().json(ethernet),
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-        }
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
-#[api_path(operation_id = "update-ethernet-mtu")]
-#[patch("/{ethernet_name}/mtu")]
-/// Updates the MTU setting for a specific Ethernet entry.
-///
-/// This function loads the network configuration using Netplan, searches for the specified Ethernet entry,
-/// and updates its MTU setting. If the Ethernet entry is found, the MTU setting is updated, and the
-/// updated configuration is saved and applied. If the Ethernet entry is not found, a 404 response is returned.
-///
-/// # Arguments
-/// - `netplan_store`: A `Data<NetplanStore>` instance that holds the Netplan configuration store.
-/// - `ethernet_name`: The name of the Ethernet entry whose MTU setting is to be updated.
-/// - `mtu`: A JSON body containing the new MTU setting (usize).
-///
-/// # Returns
-/// - `HttpResponse::Ok` with a JSON body containing the updated Ethernet entry if successful.
-/// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
-/// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-pub async fn update_ethernet_mtu(
-    netplan_store: Data<NetplanStore>,
-    ethernet_name: String,
-    mtu: Json<usize>,
-) -> impl Responder {
-    let netplan = netplan_store.netplan.lock().unwrap();
-    let mtu = mtu.into_inner();
-    let mut network = match netplan.load_config() {
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
-        Ok(network) => network,
-    };
-    let mut ethernets = network.ethernets.clone();
-    let ethernet = ethernets.remove(&ethernet_name);
-    if let Some(mut ethernet) = ethernet {
-        ethernet.set_mtu(mtu);
-        ethernets.insert(ethernet_name.clone(), ethernet.clone());
-        network.set_ethernets(ethernets);
-        match netplan.save_config(&network) {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match netplan.apply() {
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-                Ok(_) => HttpResponse::Ok().json(ethernet),
-            },
-        }
-    } else {
-        HttpResponse::NotFound().finish()
-    }
-}
-
 #[api_path(operation_id = "delete-ethernet-nameservers-search")]
 #[delete("/{ethernet_name}/nameservers/search")]
 /// Deletes a search domain from the nameservers of a specific Ethernet entry.
@@ -658,7 +446,7 @@ pub async fn delete_ethernet_nameservers_search(
 /// - `HttpResponse::BadRequest` if the provided nameserver address is invalid.
 /// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
 /// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-pub async fn add_ethernet_nameservers_address(
+pub async fn add_ethernet_nameservers_addresses(
     netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     address: String,
@@ -706,7 +494,7 @@ pub async fn add_ethernet_nameservers_address(
 /// - `HttpResponse::BadRequest` if the provided nameserver address is invalid.
 /// - `HttpResponse::InternalServerError` if there is an issue loading or saving the configuration.
 /// - `HttpResponse::NotFound` if the specified Ethernet entry is not found.
-pub async fn delete_ethernet_nameservers_address(
+pub async fn delete_ethernet_nameservers_addresses(
     netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     address: String,
@@ -791,9 +579,7 @@ pub async fn get_ethernet_routes(
 pub async fn add_ethernet_route(
     netplan_store: Data<NetplanStore>,
     ethernet_name: String,
-    to: String,
-    via: String,
-    from: String,
+    route: Json<InputRoute>,
 ) -> impl Responder {
     let netplan = netplan_store.netplan.lock().unwrap();
     let to = match to.parse::<IpAddr>() {
@@ -828,3 +614,5 @@ pub async fn add_ethernet_route(
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
+
+// Delete Ethernet Routes
