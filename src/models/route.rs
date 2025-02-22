@@ -1,7 +1,13 @@
 use crate::misc::{deserialize_ip, deserialize_ip_option, serialize_ip, serialize_ip_option};
-use std::net::IpAddr;
+use std::{
+    error::Error,
+    net::{AddrParseError, IpAddr},
+};
 
 use serde::{Deserialize, Serialize};
+use serde_yml::modules::error::new;
+
+use super::input_models::InputRoute;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -25,6 +31,43 @@ pub struct Route {
 impl Route {
     pub fn new(to: IpAddr, via: Option<IpAddr>, from: Option<IpAddr>) -> Self {
         Route { from, to, via }
+    }
+
+    pub fn from_input_route(input_route: &InputRoute) -> Result<Self, AddrParseError> {
+        let result = Route {
+            from: {
+                if let Some(from) = input_route.from.clone() {
+                    let new_value = if from == "default" {
+                        "::/0".parse::<IpAddr>()?
+                    } else {
+                        from.parse::<IpAddr>()?
+                    };
+                    Some(new_value)
+                } else {
+                    None
+                }
+            },
+            to: {
+                if input_route.to == "default" {
+                    "::/0".parse()?
+                } else {
+                    input_route.to.parse()?
+                }
+            },
+            via: {
+                if let Some(via) = input_route.via.clone() {
+                    let new_value = if via == "default" {
+                        "::/0".parse::<IpAddr>()?
+                    } else {
+                        via.parse::<IpAddr>()?
+                    };
+                    Some(new_value)
+                } else {
+                    None
+                }
+            },
+        };
+        Ok(result)
     }
 
     pub fn display(&self) {

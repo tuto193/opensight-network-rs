@@ -79,15 +79,21 @@ pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
 
 #[api_path(operation_id = "show-all-ethernets")]
 #[get("")]
-/// Retrieves all managed Ethernet entries.
+/// Retrieves all Ethernet entries.
 ///
-/// This function loads the network configuration using Netplan, extracts the Ethernet entries,
-/// and returns them as a JSON response. If there is an error loading the configuration, it returns
-/// an internal server error with the error message.
+/// This function loads the network configuration using Netplan and retrieves all Ethernet entries.
+/// If the `scope` query parameter is set to "all", it includes all Ethernet entries from the Netplan store,
+/// even those not currently in the network configuration. The resulting list of Ethernet entries is returned
+/// as a JSON response. If there is an error loading the configuration or retrieving the Ethernet entries,
+/// an appropriate HTTP response is returned.
+///
+/// # Arguments
+/// - `netplan_store`: A `Data<NetplanStore>` instance that holds the Netplan configuration store.
+/// - `scope`: A `Query<ScopeQuery>` instance that specifies the scope of the query.
 ///
 /// # Returns
 /// - `HttpResponse::Ok` with a JSON body containing the Ethernet entries if successful.
-/// - `HttpResponse::InternalServerError` with an error message if there is an issue loading the configuration.
+/// - `HttpResponse::InternalServerError` if there is an issue loading the configuration or retrieving the Ethernet entries.
 pub async fn get_all_ethernets(
     netplan_store: Data<NetplanStore>,
     scope: Query<ScopeQuery>,
@@ -588,33 +594,21 @@ pub async fn get_ethernet_routes(
 pub async fn add_ethernet_route(
     netplan_store: Data<NetplanStore>,
     ethernet_name: String,
-    route: Json<InputRoute>,
+    input_route: Json<InputRoute>,
 ) -> impl Responder {
     let netplan = netplan_store.netplan.lock().unwrap();
-    let route = route.into_inner();
-    let to = match route.to.parse::<IpAddr>() {
-        Ok(to) => to,
-        Err(err) => {
-            return HttpResponse::BadRequest().body(err.to_string());
-        }
+    let route = match Route::from_input_route(&input_route.into_inner()) {
+        Ok(route) => route,
+        Err(err) => return HttpResponse::BadRequest().body(err.to_string()),
     };
-    let via: Option<IpAddr> = match route.via {
-        Some(ip) => Some(ip.parse().unwrap()),
-        None => None,
-    };
-    let from: Option<IpAddr> = match route.from {
-        Some(ip) => Some(ip.parse().unwrap()),
-        None => None,
-    };
+
     let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
     let mut ethernets = network.get_ethernets().clone();
-    let ethernet = ethernets.remove(&ethernet_name);
-    let to_add = Route { to, via, from };
-    if let Some(mut ethernet) = ethernet {
-        ethernet.add_route(&to_add);
+    if let Some(mut ethernet) = ethernets.remove(&ethernet_name) {
+        ethernet.add_route(&route);
         network.add_ethernet(&ethernet);
         match netplan.save_config(&network) {
             Ok(_) => HttpResponse::Ok().json(ethernet),
