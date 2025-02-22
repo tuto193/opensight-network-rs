@@ -16,7 +16,7 @@ pub enum NetworkRenderer {
 pub struct Network {
     pub version: usize,
     pub renderer: NetworkRenderer,
-    pub ethernets: HashMap<String, Ethernet>,
+    ethernets: HashMap<String, Ethernet>,
     // pub vlans: Vec<Vlan>,
 }
 

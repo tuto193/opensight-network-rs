@@ -5,16 +5,16 @@ edition = "2021"
 author = "Carlos A. Parra F. (tuto193)"
 
 [dependencies]
-serde = { version = "1.0.210", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 serde_yml = "0.0.12"
 utoipa = { version = "5", features = ["actix_extras"] }
-utoipa-actix-web = "0.1.0"
-utoipa-swagger-ui = { version = "8.0.3", features = ["actix-web"] }
+utoipa-actix-web = "0.1"
+utoipa-swagger-ui = { version = "8", features = ["actix-web"] }
 actix-web = "4"
-futures = "0.3.31"
+futures = "0.3"
 uuid = { version = "1.0", features = ["v4"] }
-utoipa-redoc = { version = "5.0.0", features = ["actix-web"] }
-utoipa-rapidoc = { version = "5.0.0", features = ["actix-web"] }
-utoipa-scalar = { version = "0.2.0", features = ["actix-web"] }
-log = "0.4.22"
-env_logger = "0.11.5"
+utoipa-redoc = { version = "5", features = ["actix-web"] }
+utoipa-rapidoc = { version = "5", features = ["actix-web"] }
+utoipa-scalar = { version = "0.2", features = ["actix-web"] }
+log = "0.4"
+env_logger = "0.11"

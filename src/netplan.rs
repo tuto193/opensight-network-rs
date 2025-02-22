@@ -59,7 +59,7 @@ impl Netplan {
 
     fn interfaces_expecting_dhcp_address(network: &Network) -> Vec<String> {
         let mut result = vec![];
-        for (eth_name, eth) in network.ethernets.iter() {
+        for (eth_name, eth) in network.get_ethernets().iter() {
             if eth.get_dhcp4()
                 || (eth.get_dhcp6()
                     && eth.get_accept_ra().is_some()
@@ -335,7 +335,10 @@ impl Netplan {
     }
 
     pub fn save_and_apply(&self, network: &Network) -> Result<Network, HttpResponse> {
-        self.save_config(network);
+        match self.save_config(network) {
+            Ok(_) => (),
+            Err(err) => return Err(HttpResponse::InternalServerError().body(err.to_string())),
+        }
         self.apply_with_diff()
     }
 

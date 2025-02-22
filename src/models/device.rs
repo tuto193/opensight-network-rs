@@ -3,13 +3,14 @@ use std::{
     net::{IpAddr, SocketAddr},
 };
 
-use super::{nameservers::Nameservers, route::Route};
+use super::{input_models::InputDevice, nameservers::Nameservers, route::Route};
 use crate::custom_types::BoundedU32;
 
 pub type MTU = BoundedU32<68, 64000>;
 pub type MTUV6 = BoundedU32<1280, 64000>;
 
 pub trait Device {
+    fn from_input_device(name: &str, input_device: &InputDevice) -> Self;
     // DHCP stuff
     fn set_dhcp4(&mut self, set: bool);
     fn get_dhcp4(&self) -> bool;
@@ -26,16 +27,16 @@ pub trait Device {
     // ADDRESSES
     fn get_addresses(&self) -> HashSet<SocketAddr>;
     // fn add_address(&mut self, address: IpAddr);
-    fn add_addresses(&mut self, address: &Vec<SocketAddr>);
+    fn add_address(&mut self, address: &SocketAddr);
     fn get_dynamic_addresses(&self) -> Vec<String>;
     fn set_dynamic_addresses(&mut self, addresses: &Vec<String>);
     fn delete_address(&mut self, address: &SocketAddr) -> bool;
     // NAMESERVERS
     fn get_nameservers(&self) -> Nameservers;
     fn add_nameservers(&mut self, nameservers: Nameservers);
-    fn add_nameservers_search(&mut self, search: &Vec<String>);
+    fn add_nameservers_search(&mut self, search: &String);
     // fn add_nameservers_address(&mut self, address: IpAddr);
-    fn add_nameservers_address(&mut self, address: &Vec<IpAddr>);
+    fn add_nameservers_address(&mut self, address: &IpAddr);
     fn delete_nameservers_search(&mut self, search: &String) -> bool;
     fn delete_nameservers_address(&mut self, address: &IpAddr) -> bool;
     // ROUTES

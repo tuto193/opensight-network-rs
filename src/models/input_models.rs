@@ -3,12 +3,18 @@ use utoipa::ToSchema;
 
 use super::device::{MTU, MTUV6};
 
+#[derive(Deserialize)]
+pub struct ScopeQuery {
+    pub scope: String,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct InputDevice {
-    accept_ra: Option<bool>,
-    dhcp4: Option<bool>,
-    dhcp6: Option<bool>,
-    mtu: Option<MTU>,
-    ipv6_mtu: Option<MTUV6>,
+    pub accept_ra: Option<bool>,
+    pub dhcp4: Option<bool>,
+    pub dhcp6: Option<bool>,
+    pub mtu: Option<MTU>,
+    pub ipv6_mtu: Option<MTUV6>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]

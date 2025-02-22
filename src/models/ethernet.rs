@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     device::{Device, MTU, MTUV6},
+    input_models::InputDevice,
     nameservers::Nameservers,
     route::Route,
 };
@@ -55,6 +56,22 @@ impl Ethernet {
 }
 
 impl Device for Ethernet {
+    fn from_input_device(name: &str, input_device: &InputDevice) -> Self {
+        let mut result = Self::new(name.to_string());
+        if let Some(dhcp) = input_device.dhcp4 {
+            result.set_dhcp4(dhcp);
+        }
+        if let Some(dhcp6) = input_device.dhcp6 {
+            result.set_dhcp6(dhcp6);
+        }
+
+        result.set_accept_ra(input_device.accept_ra);
+        result.set_mtu(input_device.mtu);
+        result.set_ipv6_mtu(input_device.ipv6_mtu);
+
+        result
+    }
+
     fn set_dhcp4(&mut self, set: bool) {
         self.dhcp4 = set;
     }
@@ -103,17 +120,12 @@ impl Device for Ethernet {
         self.routes.clone()
     }
 
-    fn add_nameservers_search(&mut self, search: &Vec<String>) {
-        for s in search {
-            self.nameservers.add_search(s);
-        }
+    fn add_nameservers_search(&mut self, search: &String) {
+        self.nameservers.add_search(search);
     }
 
-    fn add_nameservers_address(&mut self, address: &Vec<IpAddr>) {
-        for address in address {
-            self.nameservers.add_address(address);
-        }
-        // self.nameservers.add_address(address);
+    fn add_nameservers_address(&mut self, address: &IpAddr) {
+        self.nameservers.add_address(address);
     }
 
     fn delete_nameservers_search(&mut self, search: &String) -> bool {
@@ -136,10 +148,8 @@ impl Device for Ethernet {
         self.routes = HashMap::new();
     }
 
-    fn add_addresses(&mut self, address: &Vec<SocketAddr>) {
-        for a in address {
-            self.addresses.insert(a.clone());
-        }
+    fn add_address(&mut self, address: &SocketAddr) {
+        self.addresses.insert(address.clone());
     }
 
     fn get_dynamic_addresses(&self) -> Vec<String> {
