@@ -72,6 +72,14 @@ impl Device for Ethernet {
         result
     }
 
+    fn update_from_device(&mut self, device: &impl Device) {
+        self.set_dhcp4(device.get_dhcp4());
+        self.set_dhcp6(device.get_dhcp6());
+        self.set_accept_ra(device.get_accept_ra());
+        self.set_mtu(device.get_mtu());
+        self.set_ipv6_mtu(device.get_ipv6_mtu());
+    }
+
     fn set_dhcp4(&mut self, set: bool) {
         self.dhcp4 = set;
     }

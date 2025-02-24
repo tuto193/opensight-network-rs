@@ -11,6 +11,7 @@ pub type MTUV6 = BoundedU32<1280, 64000>;
 
 pub trait Device {
     fn from_input_device(name: &str, input_device: &InputDevice) -> Self;
+    fn update_from_device(&mut self, device: &impl Device);
     // DHCP stuff
     fn set_dhcp4(&mut self, set: bool);
     fn get_dhcp4(&self) -> bool;

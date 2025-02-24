@@ -5,6 +5,7 @@ use crate::{
         device::Device,
         ethernet::Ethernet,
         input_models::{InputDevice, InputRoute, ScopeQuery},
+        network,
         route::Route,
     },
     netplan::NetplanStore,
@@ -20,7 +21,7 @@ use utoipa_actix_web::service_config::ServiceConfig;
 #[derive(OpenApi)]
 #[openapi(paths(
     get_all_ethernets,
-    create_or_update_ethernet,
+    update_ethernet,
     get_ethernet,
     get_ethernet_ip_addresses,
     add_ethernet_ip_address,
@@ -65,7 +66,7 @@ pub fn configure(store: Data<NetplanStore>) -> impl FnOnce(&mut ServiceConfig) {
             .service(add_ethernet_ip_address)
             .service(add_ethernet_nameservers_address)
             .service(add_ethernet_nameservers_search)
-            .service(create_or_update_ethernet)
+            .service(update_ethernet)
             .service(delete_ethernet_ip_address)
             .service(delete_ethernet_nameservers_address)
             .service(delete_ethernet_nameservers_search)
@@ -120,8 +121,8 @@ pub async fn get_all_ethernets(
     HttpResponse::Ok().json(ethernets)
 }
 
-#[api_path(operation_id = "create-ethernet")]
-#[patch("/<ethernet_name>")]
+#[api_path(operation_id = "update-ethernet")]
+#[patch("/{ethernet_name}")]
 /// Creates a new Ethernet entry.
 ///
 /// This function creates a new Ethernet entry with the specified name, adds it to the network configuration,
@@ -135,28 +136,54 @@ pub async fn get_all_ethernets(
 /// # Returns
 /// - `HttpResponse::Ok` with a JSON body containing the created Ethernet entry if successful.
 /// - `HttpResponse::InternalServerError` if there is an issue loading, saving, or applying the configuration.
-pub async fn create_or_update_ethernet(
+pub async fn update_ethernet(
     netplan_store: Data<NetplanStore>,
     ethernet_name: String,
     ethernet: Json<InputDevice>,
 ) -> impl Responder {
     let netplan = netplan_store.netplan.lock().unwrap();
-    let result = Ethernet::from_input_device(&ethernet_name, &ethernet.into_inner());
     let mut network = match netplan.load_config() {
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
+    let mut present_ethernets = network.get_ethernets().clone();
+    match netplan.get_all_ethernets() {
+        Ok(all_ethernets) => {
+            all_ethernets
+                .iter()
+                .filter(|&eth| !network.get_ethernets().contains_key(eth))
+                .for_each(|eth| {
+                    present_ethernets.insert(eth.clone(), Ethernet::new(eth.clone()));
+                });
+        }
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+    }
+    if !present_ethernets.contains_key(&ethernet_name) {
+        return HttpResponse::NotFound().body(format!(
+            "Ethernet '{}' not found. \
+            Please make sure that the interface exists in the system.",
+            ethernet_name
+        ));
+    }
+
+    let new_ethernet = Ethernet::from_input_device(&ethernet_name, &ethernet.into_inner());
+    let result = if let Some(network_ethernet) = network.get_ethernets().get(&ethernet_name) {
+        let mut updated = network_ethernet.clone();
+        updated.update_from_device(&new_ethernet);
+        updated
+    } else {
+        new_ethernet
+    };
     network.add_ethernet(&result);
-    match netplan.save_config(&network) {
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-        Ok(_) => match netplan.apply() {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => HttpResponse::Ok().json(result),
-        },
+    match netplan.save_and_apply(&network) {
+        Err(err) => err,
+        Ok(network) => {
+            HttpResponse::Ok().json(network.get_ethernets().get(&ethernet_name).unwrap())
+        }
     }
 }
 
-#[api_path(operation_id = "get-ethernetsethernet")]
+#[api_path(operation_id = "show-ethernet")]
 #[get("/{ethernet_name}")]
 /// Retrieves a specific Ethernet entry by name.
 ///
@@ -181,15 +208,14 @@ pub async fn get_ethernet(
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
         Ok(network) => network,
     };
-    let ethernet = network.get_ethernets().get(&ethernet_name);
-    if let Some(ethernet) = ethernet {
+    if let Some(ethernet) = network.get_ethernets().get(&ethernet_name) {
         HttpResponse::Ok().json(ethernet)
     } else {
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
     }
 }
 
-#[api_path(operation_id = "add-ethernet-ip-address")]
+#[api_path(operation_id = "add-ethernet-address")]
 #[post("/{ethernet_name}/addresses")]
 /// Adds an IP address to a specific Ethernet entry.
 ///
