@@ -29,15 +29,15 @@ impl Nameservers {
         }
     }
 
-    pub fn add_search(&mut self, search: &String) {
-        self.search.insert(search.clone());
+    pub fn add_search(&mut self, search: &str) {
+        self.search.insert(search.to_string());
     }
 
     pub fn add_address(&mut self, address: &IpAddr) {
-        self.addresses.insert(address.clone());
+        self.addresses.insert(*address);
     }
 
-    pub fn remove_search(&mut self, search: &String) -> bool {
+    pub fn remove_search(&mut self, search: &str) -> bool {
         self.search.remove(search)
     }
 
@@ -45,8 +45,8 @@ impl Nameservers {
         self.addresses.remove(address)
     }
 
-    pub fn contains_search(&self, search: String) -> bool {
-        self.search.contains(&search)
+    pub fn contains_search(&self, search: &str) -> bool {
+        self.search.contains(search)
     }
 
     pub fn contains_address(&self, address: &IpAddr) -> bool {

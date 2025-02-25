@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<'de> serde::de::Visitor<'de> for IpAddrVisitor {
+impl serde::de::Visitor<'_> for IpAddrVisitor {
     type Value = Option<IpAddr>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

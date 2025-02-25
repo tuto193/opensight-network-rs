@@ -67,8 +67,10 @@ pub async fn update_host_info(
     let new_host_info: InputHostInfo = new_host_info.into_inner();
     let store = store.host_info.lock().unwrap();
     if let Some(hostname) = new_host_info.hostname {
-        store.set_hostname(&hostname);
-        return HttpResponse::Ok().json(hostname);
+        match store.set_hostname(&hostname) {
+            Ok(_) => return HttpResponse::Ok().json(hostname),
+            Err(err) => return HttpResponse::InternalServerError().json(err.to_string()),
+        }
     }
     HttpResponse::NotFound().json("Hostname not found")
 }

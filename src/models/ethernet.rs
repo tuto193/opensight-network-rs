@@ -128,7 +128,7 @@ impl Device for Ethernet {
         self.routes.clone()
     }
 
-    fn add_nameservers_search(&mut self, search: &String) {
+    fn add_nameservers_search(&mut self, search: &str) {
         self.nameservers.add_search(search);
     }
 
@@ -136,7 +136,7 @@ impl Device for Ethernet {
         self.nameservers.add_address(address);
     }
 
-    fn delete_nameservers_search(&mut self, search: &String) -> bool {
+    fn delete_nameservers_search(&mut self, search: &str) -> bool {
         self.nameservers.remove_search(search)
     }
 
@@ -144,7 +144,7 @@ impl Device for Ethernet {
         self.nameservers.remove_address(address)
     }
 
-    fn delete_route(&mut self, route_id: &String) -> bool {
+    fn delete_route(&mut self, route_id: &str) -> bool {
         self.routes.remove(route_id).is_some()
     }
 
@@ -157,7 +157,7 @@ impl Device for Ethernet {
     }
 
     fn add_address(&mut self, address: &SocketAddr) {
-        self.addresses.insert(address.clone());
+        self.addresses.insert(*address);
     }
 
     fn get_dynamic_addresses(&self) -> Vec<String> {
@@ -165,7 +165,7 @@ impl Device for Ethernet {
     }
 
     fn add_route(&mut self, route: &Route) {
-        self.routes.insert(route.id(), route.clone());
+        self.routes.insert(route.id(), *route);
     }
 
     fn set_ipv6_mtu(&mut self, mtu: Option<MTUV6>) {
@@ -184,7 +184,7 @@ impl Device for Ethernet {
         self.system_state = state;
     }
 
-    fn set_dynamic_addresses(&mut self, addresses: &Vec<String>) {
-        self.dynamic_addresses = addresses.clone();
+    fn set_dynamic_addresses(&mut self, addresses: &[String]) {
+        self.dynamic_addresses = addresses.into();
     }
 }

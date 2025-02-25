@@ -1,11 +1,7 @@
 use crate::misc::{deserialize_ip, deserialize_ip_option, serialize_ip, serialize_ip_option};
-use std::{
-    error::Error,
-    net::{AddrParseError, IpAddr},
-};
+use std::net::{AddrParseError, IpAddr};
 
 use serde::{Deserialize, Serialize};
-use serde_yml::modules::error::new;
 
 use super::input_models::InputRoute;
 

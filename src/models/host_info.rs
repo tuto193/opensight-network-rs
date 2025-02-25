@@ -30,7 +30,7 @@ impl HostInfo {
         Self::_run_hostnamectl(&["hostname"])
     }
 
-    pub fn set_hostname(&self, hostname: &String) {
-        Self::_run_hostnamectl(&[hostname]);
+    pub fn set_hostname(&self, hostname: &str) -> std::io::Result<String> {
+        Self::_run_hostnamectl(&[hostname])
     }
 }

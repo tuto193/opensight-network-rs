@@ -5,7 +5,6 @@ use crate::{
         device::Device,
         ethernet::Ethernet,
         input_models::{InputDevice, InputRoute, ScopeQuery},
-        network,
         route::Route,
     },
     netplan::NetplanStore,
@@ -211,7 +210,10 @@ pub async fn get_ethernet(
     if let Some(ethernet) = network.get_ethernets().get(&ethernet_name) {
         HttpResponse::Ok().json(ethernet)
     } else {
-        HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
+        HttpResponse::NotFound().body(format!(
+            "Ethernet {ethernet_name} was not found in the current \
+                    configuration. Make sure to add it with update-ethernet."
+        ))
     }
 }
 
@@ -253,12 +255,11 @@ pub async fn add_ethernet_ip_address(
     if let Some(mut ethernet) = ethernet {
         ethernet.add_address(&to_add);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match netplan.apply() {
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-                Ok(_) => HttpResponse::Ok().json(ethernet),
-            },
+        match netplan.save_and_apply(&network) {
+            Err(err) => err,
+            Ok(network) => {
+                HttpResponse::Ok().json(network.get_ethernets().get(&ethernet_name).unwrap())
+            }
         }
     } else {
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
@@ -336,12 +337,9 @@ pub async fn delete_ethernet_ip_address(
     if let Some(mut ethernet) = ethernet {
         ethernet.delete_address(&to_delete);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match netplan.apply() {
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-                Ok(_) => HttpResponse::Ok().json(ethernet),
-            },
+        match netplan.save_and_apply(&network) {
+            Err(err) => err,
+            Ok(_) => HttpResponse::NoContent().finish(),
         }
     } else {
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
@@ -414,12 +412,11 @@ pub async fn add_ethernet_nameservers_search(
     if let Some(mut ethernet) = ethernet {
         ethernet.add_nameservers_search(&search);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match netplan.apply() {
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-                Ok(_) => HttpResponse::Ok().json(ethernet),
-            },
+        match netplan.save_and_apply(&network) {
+            Err(err) => err,
+            Ok(network) => {
+                HttpResponse::Created().json(network.get_ethernets().get(&ethernet_name).unwrap())
+            }
         }
     } else {
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
@@ -458,12 +455,9 @@ pub async fn delete_ethernet_nameservers_search(
     if let Some(mut ethernet) = ethernet {
         ethernet.delete_nameservers_search(&search);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-            Ok(_) => match netplan.apply() {
-                Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-                Ok(_) => HttpResponse::Ok().json(ethernet),
-            },
+        match netplan.save_and_apply(&network) {
+            Err(err) => err,
+            Ok(_) => HttpResponse::NoContent().finish(),
         }
     } else {
         HttpResponse::NotFound().finish()
@@ -508,9 +502,11 @@ pub async fn add_ethernet_nameservers_address(
     if let Some(mut ethernet) = ethernet {
         ethernet.add_nameservers_address(&address);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Ok(_) => HttpResponse::Ok().json(ethernet),
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        match netplan.save_and_apply(&network) {
+            Ok(network) => {
+                HttpResponse::Ok().json(network.get_ethernets().get(&ethernet_name).unwrap())
+            }
+            Err(err) => err,
         }
     } else {
         HttpResponse::NotFound().finish()
@@ -555,9 +551,9 @@ pub async fn delete_ethernet_nameservers_address(
     if let Some(mut ethernet) = ethernet {
         ethernet.delete_nameservers_address(&address);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Ok(_) => HttpResponse::Ok().json(ethernet),
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        match netplan.save_and_apply(&network) {
+            Ok(_) => HttpResponse::NoContent().finish(),
+            Err(err) => err,
         }
     } else {
         HttpResponse::NotFound().finish()
@@ -636,9 +632,11 @@ pub async fn add_ethernet_route(
     if let Some(mut ethernet) = ethernets.remove(&ethernet_name) {
         ethernet.add_route(&route);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Ok(_) => HttpResponse::Ok().json(ethernet),
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        match netplan.save_and_apply(&network) {
+            Ok(network) => {
+                HttpResponse::Ok().json(network.get_ethernets().get(&ethernet_name).unwrap())
+            }
+            Err(err) => err,
         }
     } else {
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
@@ -663,9 +661,9 @@ pub async fn delete_ethernet_route(
     if let Some(mut ethernet) = ethernet {
         ethernet.delete_route(&route_id);
         network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Ok(_) => HttpResponse::Ok().json(ethernet),
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        match netplan.save_and_apply(&network) {
+            Ok(_) => HttpResponse::NoContent().finish(),
+            Err(err) => err,
         }
     } else {
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))
@@ -687,10 +685,10 @@ pub async fn delete_ethernet_routes(
     let ethernet = ethernets.get_mut(&ethernet_name);
     if let Some(ethernet) = ethernet {
         ethernet.delete_all_routes();
-        network.add_ethernet(&ethernet);
-        match netplan.save_config(&network) {
-            Ok(_) => HttpResponse::Ok().json(ethernet),
-            Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        network.add_ethernet(ethernet);
+        match netplan.save_and_apply(&network) {
+            Ok(_) => HttpResponse::NoContent().finish(),
+            Err(err) => err,
         }
     } else {
         HttpResponse::NotFound().body(format!("Ethernet {ethernet_name} was not found."))

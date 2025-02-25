@@ -30,22 +30,22 @@ pub trait Device {
     // fn add_address(&mut self, address: IpAddr);
     fn add_address(&mut self, address: &SocketAddr);
     fn get_dynamic_addresses(&self) -> Vec<String>;
-    fn set_dynamic_addresses(&mut self, addresses: &Vec<String>);
+    fn set_dynamic_addresses(&mut self, addresses: &[String]);
     fn delete_address(&mut self, address: &SocketAddr) -> bool;
     // NAMESERVERS
     fn get_nameservers(&self) -> Nameservers;
     fn add_nameservers(&mut self, nameservers: Nameservers);
-    fn add_nameservers_search(&mut self, search: &String);
+    fn add_nameservers_search(&mut self, search: &str);
     // fn add_nameservers_address(&mut self, address: IpAddr);
     fn add_nameservers_address(&mut self, address: &IpAddr);
-    fn delete_nameservers_search(&mut self, search: &String) -> bool;
+    fn delete_nameservers_search(&mut self, search: &str) -> bool;
     fn delete_nameservers_address(&mut self, address: &IpAddr) -> bool;
     // ROUTES
     fn get_routes(&self) -> HashMap<String, Route>;
     fn add_route(&mut self, route: &Route);
     // fn add_built_route(&mut self, route: Route);
     // fn add_gateway_route(&mut self, via: Option<IpAddr>, from: Option<IpAddr>);
-    fn delete_route(&mut self, route_id: &String) -> bool;
+    fn delete_route(&mut self, route_id: &str) -> bool;
     fn delete_all_routes(&mut self);
     fn get_system_state(&self) -> HashMap<String, serde_yml::Value>;
     fn set_system_state(&mut self, state: HashMap<String, serde_yml::Value>);

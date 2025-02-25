@@ -42,13 +42,13 @@ impl Netplan {
         data: &HashMap<String, serde_yml::Mapping>,
     ) -> Vec<String> {
         let mut interfaces: Vec<String> = vec![];
-        let search_strings = vec!["missing_dhcp4_address", "missing_dhcp6_address"];
+        let search_strings = &["missing_dhcp4_address", "missing_dhcp6_address"];
         for (eth, eth_dict) in data.iter() {
-            if let Some(missing_dhcp4) = eth_dict.get(&search_strings[0]) {
+            if let Some(missing_dhcp4) = eth_dict.get(search_strings[0]) {
                 if missing_dhcp4.as_bool().unwrap() {
                     interfaces.push(eth.clone());
                 }
-            } else if let Some(missing_dhcp6) = eth_dict.get(&search_strings[1]) {
+            } else if let Some(missing_dhcp6) = eth_dict.get(search_strings[1]) {
                 if missing_dhcp6.as_bool().unwrap() {
                     interfaces.push(eth.clone());
                 }
