@@ -12,6 +12,14 @@ use super::{
     route::Route,
 };
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DynamicDevAttribute {
+    Addresses,
+    Routes,
+    DnsAddresses,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ethernet {
@@ -30,7 +38,7 @@ pub struct Ethernet {
     #[serde(skip_serializing)]
     dynamic_addresses: Vec<String>,
     #[serde(skip_serializing)]
-    system_state: HashMap<String, serde_yml::Value>,
+    system_state_differences: HashMap<String, serde_yml::Value>,
 }
 
 impl Ethernet {
@@ -46,7 +54,7 @@ impl Ethernet {
             addresses: HashSet::new(),
             nameservers: Nameservers::new(),
             dynamic_addresses: Vec::new(),
-            system_state: HashMap::new(),
+            system_state_differences: HashMap::new(),
         }
     }
 
@@ -177,11 +185,11 @@ impl Device for Ethernet {
     }
 
     fn get_system_state(&self) -> HashMap<String, serde_yml::Value> {
-        self.system_state.clone()
+        self.system_state_differences.clone()
     }
 
     fn set_system_state(&mut self, state: HashMap<String, serde_yml::Value>) {
-        self.system_state = state;
+        self.system_state_differences = state;
     }
 
     fn set_dynamic_addresses(&mut self, addresses: &[String]) {

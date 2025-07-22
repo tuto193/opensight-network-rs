@@ -6,7 +6,7 @@ use std::{
 use super::{input_models::InputDevice, nameservers::Nameservers, route::Route};
 use crate::custom_types::BoundedU32;
 
-pub type MTU = BoundedU32<68, 64000>;
+pub type MTU = BoundedU32<1280, 64000>;
 pub type MTUV6 = BoundedU32<1280, 64000>;
 
 pub trait Device {

@@ -5,6 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use super::input_models::InputRoute;
 
+pub enum BaseTo {
+    Default,
+    Address(IpAddr),
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Route {
@@ -100,3 +105,7 @@ impl Route {
         )
     }
 }
+
+// pub struct DynamicRoute {
+//     pub scope:
+// }
