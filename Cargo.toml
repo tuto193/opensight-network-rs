@@ -1,8 +1,8 @@
 [package]
 name = "opensight-network-rs"
 version = "0.1.0"
-edition = "2021"
-author = "Carlos A. Parra F. (tuto193)"
+edition = "2024"
+authors = ["Carlos A. Parra F. (tuto193)"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -18,3 +18,4 @@ utoipa-rapidoc = { version = "5", features = ["actix-web"] }
 utoipa-scalar = { version = "0.2", features = ["actix-web"] }
 log = "0.4"
 env_logger = "0.11"
+validator = { version = "0.20.0", features = ["derive"] }

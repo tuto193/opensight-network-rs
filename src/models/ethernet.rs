@@ -4,25 +4,23 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use crate::models::device::DynDevAttrType;
 
-use super::{
-    device::{Device, MTU, MTUV6},
-    input_models::InputDevice,
-    nameservers::Nameservers,
-    route::Route,
-};
+use super::{device::Device, input_models::InputDevice, nameservers::Nameservers, route::Route};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Validate)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ethernet {
     #[serde(skip_serializing)]
     name: String,
     dhcp4: bool,
     dhcp6: bool,
-    mtu: Option<MTU>,
-    ipv6_mtu: Option<MTUV6>,
+    #[validate(range(min = 1280, max = 64000))]
+    mtu: Option<u32>,
+    #[validate(range(min = 1280, max = 64000))]
+    ipv6_mtu: Option<u32>,
     accept_ra: Option<bool>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     routes: HashMap<String, Route>,
@@ -112,11 +110,11 @@ impl Device for Ethernet {
         self.accept_ra
     }
 
-    fn get_mtu(&self) -> Option<MTU> {
+    fn get_mtu(&self) -> Option<u32> {
         self.mtu
     }
 
-    fn set_mtu(&mut self, mtu: Option<MTU>) {
+    fn set_mtu(&mut self, mtu: Option<u32>) {
         self.mtu = mtu;
     }
 
@@ -144,19 +142,19 @@ impl Device for Ethernet {
         self.nameservers.add_address(address);
     }
 
-    fn delete_nameservers_search(&mut self, search: &str) -> bool {
+    fn delete_nameservers_search(&mut self, search: &str) {
         self.nameservers.remove_search(search)
     }
 
-    fn delete_nameservers_address(&mut self, address: &IpAddr) -> bool {
+    fn delete_nameservers_address(&mut self, address: &IpAddr) {
         self.nameservers.remove_address(address)
     }
 
-    fn delete_route(&mut self, route_id: &str) -> bool {
+    fn delete_route(&mut self, route_id: &str) {
         self.routes.remove(route_id).is_some()
     }
 
-    fn delete_address(&mut self, address: &SocketAddr) -> bool {
+    fn delete_address(&mut self, address: &SocketAddr) {
         self.addresses.remove(address)
     }
 
@@ -168,19 +166,15 @@ impl Device for Ethernet {
         self.addresses.insert(*address);
     }
 
-    fn get_dynamic_addresses(&self) -> Vec<String> {
-        self.dynamic_addresses.clone()
-    }
-
     fn add_route(&mut self, route: &Route) {
         self.routes.insert(route.id(), *route);
     }
 
-    fn set_ipv6_mtu(&mut self, mtu: Option<MTUV6>) {
+    fn set_ipv6_mtu(&mut self, mtu: Option<u32>) {
         self.ipv6_mtu = mtu;
     }
 
-    fn get_ipv6_mtu(&self) -> Option<MTUV6> {
+    fn get_ipv6_mtu(&self) -> Option<u32> {
         self.ipv6_mtu
     }
 
@@ -192,7 +186,11 @@ impl Device for Ethernet {
         self.system_state_differences = state;
     }
 
-    fn set_dynamic_addresses(&mut self, addresses: &[String]) {
-        self.dynamic_addresses = addresses.into();
+    fn get_dynamic_attributes(&self) -> HashMap<DynDevAttrType, Vec<String>> {
+        todo!()
+    }
+
+    fn set_dynamic_attributes_from_yaml(&mut self, yaml_output: HashMap<String, serde_yml::Value>) {
+        todo!()
     }
 }
