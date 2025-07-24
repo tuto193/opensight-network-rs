@@ -7,18 +7,20 @@ use serde::{Deserialize, Serialize};
 
 use super::input_models::InputRoute;
 
+#[derive(Debug)]
 pub enum BaseTo {
     Default,
     AddressWithBits(SocketAddr),
 }
 
+#[derive(Debug)]
 pub enum DynTo {
     Default,
     AddressWithBits(SocketAddr),
     Address(IpAddr),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RouteType {
     Unicast,
     Anycast,
@@ -33,14 +35,14 @@ pub enum RouteType {
     Xresolve,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RouteScope {
     Global,
     Link,
     Host,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RouteProtocol {
     Dhcp,
     Kernel,
@@ -199,10 +201,9 @@ impl Route {
                 Some(from) => from.to_string(),
                 None => "from".to_string(),
             },
-            if self.to.is_unspecified() {
-                "default".to_string()
-            } else {
-                self.to.to_string()
+            match self.to {
+                BaseTo::Default => "default".to_string(),
+                BaseTo::AddressWithBits(addr) => addr.to_string(),
             },
             match self.via {
                 Some(via) => via.to_string(),
@@ -212,13 +213,45 @@ impl Route {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "kebab-case")]
+/// Represents a dynamic network route configuration with extended routing properties.
+///
+/// A dynamic route extends the basic route concept by including additional routing
+/// metadata such as scope, protocol, and route type. This provides more granular
+/// control over how network traffic is handled and allows for more sophisticated
+/// routing policies.
+///
+/// Unlike the basic `Route` struct, `DynamicRoute` uses the `DynTo` enum for
+/// destinations, which supports both address-with-bits notation and plain IP addresses.
 pub struct DynamicRoute {
+    /// The source IP address for this route.
+    /// If `None`, the route applies to traffic from any source.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_ip_option",
+        deserialize_with = "deserialize_ip_option"
+    )]
     pub from: Option<IpAddr>,
+    /// The destination for this route.
+    /// Can be a default route, a specific address with network bits, or a plain IP address.
     pub to: DynTo,
+
+    /// The gateway IP address through which traffic should be routed.
+    /// If `None`, traffic is routed directly to the destination.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_ip_option",
+        deserialize_with = "deserialize_ip_option"
+    )]
     pub via: Option<IpAddr>,
+    /// The routing scope that defines the reach of this route.
+    /// Determines whether the route is global, link-local, or host-local.
     pub scope: RouteScope,
+    /// The routing protocol that manages this route.
+    /// Indicates how the route was learned or configured (e.g., DHCP, kernel, RA).
     pub protocol: RouteProtocol,
+    /// The type of route that defines its behavior.
+    /// Specifies how packets matching this route should be handled (e.g., unicast, blackhole, etc.).
     pub type_: RouteType,
 }

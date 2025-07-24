@@ -5,20 +5,14 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::models::device::DynDevAttrType;
+
 use super::{
     device::{Device, MTU, MTUV6},
     input_models::InputDevice,
     nameservers::Nameservers,
     route::Route,
 };
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum DynamicDevAttribute {
-    Addresses,
-    Routes,
-    DnsAddresses,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -35,8 +29,12 @@ pub struct Ethernet {
     #[serde(skip_serializing_if = "HashSet::is_empty")]
     addresses: HashSet<SocketAddr>,
     nameservers: Nameservers,
+    // Attributes that only appear in the config (not in model)
+    dhcp4_overrides: Option<HashMap<String, bool>>,
+    dhcp6_overrides: Option<HashMap<String, bool>>,
+    // Attributes that don't belong in the config
     #[serde(skip_serializing)]
-    dynamic_addresses: Vec<String>,
+    dynamic_attributes: HashMap<DynDevAttrType, Vec<String>>,
     #[serde(skip_serializing)]
     system_state_differences: HashMap<String, serde_yml::Value>,
 }
@@ -53,7 +51,9 @@ impl Ethernet {
             routes: HashMap::new(),
             addresses: HashSet::new(),
             nameservers: Nameservers::new(),
-            dynamic_addresses: Vec::new(),
+            dhcp4_overrides: None,
+            dhcp6_overrides: None,
+            dynamic_attributes: Vec::new(),
             system_state_differences: HashMap::new(),
         }
     }
@@ -184,11 +184,11 @@ impl Device for Ethernet {
         self.ipv6_mtu
     }
 
-    fn get_system_state(&self) -> HashMap<String, serde_yml::Value> {
+    fn get_system_state_diff(&self) -> HashMap<String, serde_yml::Value> {
         self.system_state_differences.clone()
     }
 
-    fn set_system_state(&mut self, state: HashMap<String, serde_yml::Value>) {
+    fn set_system_state_diff(&mut self, state: HashMap<String, serde_yml::Value>) {
         self.system_state_differences = state;
     }
 

@@ -6,9 +6,10 @@ use std::{
 
 use serde::{Deserializer, Serialize};
 
-use crate::models::route::BaseTo;
+use crate::models::route::{BaseTo, DynTo};
 
 struct BaseToVisitor;
+struct DynToVisitor;
 struct IpAddrVisitor;
 
 pub fn serialize_hash_set_from_ip_addr_as_yaml_sequence<S>(
@@ -43,17 +44,25 @@ where
     }
 }
 
-pub fn serialize_base_to<S>(ip: &BaseTo, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_base_to<S>(base_to: &BaseTo, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    if ip.is_unspecified() {
-        serializer.serialize_str("default")
-    } else {
-        serializer.serialize_str(&ip.to_string())
+    match base_to {
+        BaseTo::Default => serializer.serialize_str("default"),
+        BaseTo::AddressWithBits(addr) => serializer.serialize_str(&addr.to_string()),
     }
 }
-
+pub fn serialize_dyn_to<S>(base_to: &DynTo, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match base_to {
+        DynTo::Default => serializer.serialize_str("default"),
+        DynTo::AddressWithBits(addr) => serializer.serialize_str(&addr.to_string()),
+        DynTo::Address(addr) => serializer.serialize_str(&addr.to_string()),
+    }
+}
 impl serde::de::Visitor<'_> for BaseToVisitor {
     type Value = BaseTo;
 
@@ -80,6 +89,35 @@ impl serde::de::Visitor<'_> for BaseToVisitor {
     }
 }
 
+impl serde::de::Visitor<'_> for DynToVisitor {
+    type Value = DynTo;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("an IP address (with or without host-bits) or the literal 'default'")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        if value == "default" {
+            Ok(DynTo::Default)
+        } else {
+            let result: Result<SocketAddr, AddrParseError> = value.clone().parse();
+            if result.is_ok() {
+                Ok(DynTo::AddressWithBits(ip))
+            }
+            let result: Result<IpAddr, AddrParseError> = value.parse();
+            if result.is_ok() {
+                Ok(DynTo::Address(ip))
+            }
+            Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(value),
+                &self,
+            ))
+        }
+    }
+}
 impl serde::de::Visitor<'_> for IpAddrVisitor {
     type Value = Option<IpAddr>;
 

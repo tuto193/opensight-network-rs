@@ -207,7 +207,7 @@ impl Netplan {
                     let mut iface = Ethernet::new("eth0".to_string());
                     iface.set_dhcp4(true);
                     if let Some(eth0_diff) = diff.get("eth0") {
-                        iface.set_system_state(serde_yml::from_value(
+                        iface.set_system_state_diff(serde_yml::from_value(
                             eth0_diff.get("system_state")
                                 .expect("Ethernet should have system_state")
                                 .clone(),
