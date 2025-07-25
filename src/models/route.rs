@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use super::input_models::InputRoute;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum BaseTo {
     Default,
     AddressWithBits(SocketAddr),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum DynTo {
     Default,
     AddressWithBits(SocketAddr),
@@ -163,7 +163,7 @@ impl Route {
         } else {
             println!("  Origin: None");
         }
-        println!("  To: {}", self.to);
+        println!("  To: {:?}", self.to);
         if let Some(via) = &self.via {
             println!("  Via: {}", via);
         } else {

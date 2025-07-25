@@ -1,7 +1,6 @@
 use std::{
     collections::HashSet,
-    net::{self, AddrParseError, IpAddr},
-    os::unix::net::SocketAddr,
+    net::{AddrParseError, IpAddr, SocketAddr},
 };
 
 use serde::{Deserializer, Serialize};
@@ -105,11 +104,11 @@ impl serde::de::Visitor<'_> for DynToVisitor {
         } else {
             let result: Result<SocketAddr, AddrParseError> = value.clone().parse();
             if result.is_ok() {
-                Ok(DynTo::AddressWithBits(ip))
+                return Ok(DynTo::AddressWithBits(result.unwrap()));
             }
             let result: Result<IpAddr, AddrParseError> = value.parse();
             if result.is_ok() {
-                Ok(DynTo::Address(ip))
+                return Ok(DynTo::Address(result.unwrap()));
             }
             Err(serde::de::Error::invalid_value(
                 serde::de::Unexpected::Str(value),

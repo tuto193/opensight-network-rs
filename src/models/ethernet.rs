@@ -51,7 +51,7 @@ impl Ethernet {
             nameservers: Nameservers::new(),
             dhcp4_overrides: None,
             dhcp6_overrides: None,
-            dynamic_attributes: Vec::new(),
+            dynamic_attributes: HashMap::new(),
             system_state_differences: HashMap::new(),
         }
     }
@@ -143,19 +143,19 @@ impl Device for Ethernet {
     }
 
     fn delete_nameservers_search(&mut self, search: &str) {
-        self.nameservers.remove_search(search)
+        self.nameservers.remove_search(search);
     }
 
     fn delete_nameservers_address(&mut self, address: &IpAddr) {
-        self.nameservers.remove_address(address)
+        self.nameservers.remove_address(address);
     }
 
     fn delete_route(&mut self, route_id: &str) {
-        self.routes.remove(route_id).is_some()
+        self.routes.remove(route_id).is_some();
     }
 
     fn delete_address(&mut self, address: &SocketAddr) {
-        self.addresses.remove(address)
+        self.addresses.remove(address);
     }
 
     fn delete_all_routes(&mut self) {
