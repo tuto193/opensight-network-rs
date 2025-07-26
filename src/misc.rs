@@ -156,6 +156,6 @@ pub fn deserialize_base_to<'de, D>(deserializer: D) -> Result<BaseTo, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let result = deserializer.deserialize_str(BaseToVisitor)?.unwrap();
+    let result = deserializer.deserialize_str(BaseToVisitor)?;
     Ok(result)
 }

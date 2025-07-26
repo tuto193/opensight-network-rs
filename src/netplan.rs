@@ -1,4 +1,4 @@
-use crate::models::device::Device;
+use crate::models::device::{Device, DynDevAttrType};
 use crate::models::ethernet::Ethernet;
 use crate::models::network::Network;
 use crate::models::route::Route;
@@ -137,10 +137,10 @@ impl Netplan {
         Ok(())
     }
 
-    fn get_dynamic_addresses_from_netplan_status(
+    fn get_dynamic_attributes_from_netplan_status(
         data: serde_yml::Mapping,
-    ) -> HashMap<String, Vec<String>> {
-        let mut result: HashMap<String, Vec<String>> = HashMap::new();
+    ) -> HashMap<String, HashMap<DynDevAttrType, Vec<String>>> {
+        let mut result = HashMap::new();
         data.iter().for_each(|(eth, data)| {
             if data
                 .get("type")
@@ -149,6 +149,17 @@ impl Netplan {
                 .unwrap()
                 == "ethernet"
             {
+                let eth_name = eth.as_str().unwrap().to_string();
+                // First initialize the HashMap for the interface
+                result.insert(
+                    eth_name.clone(),
+                    HashMap::new(), // HashMap::from([
+                                    //     (DynDevAttrType::Addresses, vec![]),
+                                    //     (DynDevAttrType::DnsAddresses, vec![]),
+                                    //     (DynDevAttrType::Routes, vec![]),
+                                    // ]),
+                );
+                // Add the dynamic addresses first
                 if let Some(addresses_dict) = data.get("addresses") {
                     let mut found_addresses: Vec<String> = vec![];
                     let addresses_dict = addresses_dict.as_mapping().unwrap();
@@ -173,8 +184,23 @@ impl Netplan {
                                 found_addresses.push(parsed_address);
                             }
                         });
-                    result.insert(eth.as_str().unwrap().to_string(), found_addresses);
+                    result.entry(eth_name.clone()).and_modify(|dyn_attrs| {
+                        dyn_attrs.insert(DynDevAttrType::Addresses, found_addresses);
+                    });
                 }
+                // Then the dns_addresses
+                if let Some(dns_addresses_sequence) = data.get("dns_addresses") {
+                    let dns_addresses_vec: Vec<String> = dns_addresses_sequence
+                        .as_sequence()
+                        .unwrap()
+                        .iter()
+                        .map(|addr_val| addr_val.as_str().unwrap().to_string())
+                        .collect();
+                    result.entry(eth_name.clone()).and_modify(|dyn_attrs| {
+                        dyn_attrs.insert(DynDevAttrType::DnsAddresses, dns_addresses_vec);
+                    });
+                }
+                // And finally the dynamic_routes
             }
         });
         result
@@ -186,7 +212,7 @@ impl Netplan {
         ])?)
         .unwrap();
         let interfaces_dynamic_addresses =
-            Self::get_dynamic_addresses_from_netplan_status(status_yaml);
+            Self::get_dynamic_attributes_from_netplan_status(status_yaml);
         let diff = self.get_diff()?;
 
         let config_content = fs::read_to_string(NETPLAN_CONFIG_PATH);
@@ -214,7 +240,7 @@ impl Netplan {
                         ).expect("Mapping from system state should be made (at least) an empty mapping."));
                     }
                     if let Some(eth0_addresses) = interfaces_dynamic_addresses.get("eth0") {
-                        iface.set_dynamic_addresses(eth0_addresses);
+                        iface.set_dynamic_attributes_from_yaml(eth0_addresses);
                     }
                     base_interface = Some(iface);
                 }

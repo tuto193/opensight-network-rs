@@ -8,10 +8,10 @@ pub mod netplan;
 pub mod opensight_os_api_lib;
 pub mod routes;
 use crate::routes::{ethernet, host_info};
-use actix_web::{middleware::Logger, web::Data, App, HttpServer};
+use actix_web::{App, HttpServer, middleware::Logger, web::Data};
 use opensight_os_api_lib::OpenSightOSApiLib;
 use std::net::Ipv4Addr;
-use utoipa::{openapi::Info, OpenApi};
+use utoipa::{OpenApi, openapi::Info};
 use utoipa_actix_web::AppExt;
 use utoipa_rapidoc::RapiDoc;
 use utoipa_redoc::{Redoc, Servable};
@@ -39,8 +39,10 @@ fn config_api() -> Info {
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
     // Adjust logging
-    std::env::set_var("RUST_LOG", "debug");
-    std::env::set_var("RUST_BACKTRACE", "1");
+    unsafe {
+        std::env::set_var("RUST_LOG", "debug");
+        std::env::set_var("RUST_BACKTRACE", "1");
+    }
     env_logger::init();
     // The OpenApi main struct that should hold the whole documentation of the API
     #[derive(utoipa::OpenApi)]
