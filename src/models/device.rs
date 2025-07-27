@@ -55,5 +55,8 @@ pub trait Device {
     fn get_system_state_diff(&self) -> HashMap<String, serde_yml::Value>;
     fn set_system_state_diff(&mut self, state: HashMap<String, serde_yml::Value>);
     fn get_dynamic_attributes(&self) -> HashMap<DynDevAttrType, Vec<String>>;
-    fn set_dynamic_attributes_from_yaml(&mut self, yaml_output: HashMap<String, serde_yml::Value>);
+    fn set_dynamic_attributes_from_yaml(
+        &mut self,
+        yaml_output: HashMap<DynDevAttrType, Vec<String>>,
+    );
 }

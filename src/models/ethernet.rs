@@ -190,7 +190,10 @@ impl Device for Ethernet {
         todo!()
     }
 
-    fn set_dynamic_attributes_from_yaml(&mut self, yaml_output: HashMap<String, serde_yml::Value>) {
-        todo!()
+    fn set_dynamic_attributes_from_yaml(
+        &mut self,
+        dynamic_attributes: HashMap<DynDevAttrType, Vec<String>>,
+    ) {
+        self.dynamic_attributes = dynamic_attributes;
     }
 }

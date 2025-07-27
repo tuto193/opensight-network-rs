@@ -1,8 +1,9 @@
 use crate::models::device::{Device, DynDevAttrType};
 use crate::models::ethernet::Ethernet;
 use crate::models::network::Network;
-use crate::models::route::Route;
+use crate::models::route::{DynamicRoute, Route};
 use actix_web::{HttpResponse, Result};
+use log::info;
 use serde_yml;
 use std::collections::HashMap;
 use std::fs;
@@ -12,6 +13,32 @@ use std::sync::Mutex;
 
 const NETPLAN_CONFIG_PATH: &str = "/etc/netplan/01-network-conf.yaml";
 
+/// A Netplan configuration manager that provides an interface to interact with
+/// the system's netplan utility for network configuration management.
+///
+/// This struct serves as the main entry point for all netplan operations including:
+/// - Loading and saving network configurations
+/// - Applying network changes with validation
+/// - Managing DHCP configurations and dynamic attributes
+/// - Handling configuration backups and restoration
+/// - Retrieving network interface status and differences
+///
+/// The `Netplan` struct is designed to work with the system's netplan utility
+/// and manages the configuration file at `/etc/netplan/01-network-conf.yaml`.
+///
+/// # Examples
+///
+/// ```
+/// use your_crate::Netplan;
+///
+/// let netplan = Netplan::default();
+///
+/// // Load current network configuration
+/// let network = netplan.load_config().expect("Failed to load config");
+///
+/// // Apply configuration changes
+/// netplan.apply().expect("Failed to apply configuration");
+/// ```
 #[derive(Default)]
 pub struct Netplan;
 
@@ -21,6 +48,25 @@ pub struct NetplanStore {
 }
 
 impl Netplan {
+    /// Executes a netplan command with the given arguments.
+    ///
+    /// This is a helper function that runs the `netplan` command with the specified
+    /// arguments and returns the stdout output as a string.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A slice of string references containing the command arguments to pass to netplan
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(String)` containing the stdout output if the command succeeds,
+    /// or an `Err(io::Error)` if the command fails or returns a non-zero exit code.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let output = Netplan::run_command(&["status", "--format", "yaml"])?;
+    /// ```
     fn run_command(args: &[&str]) -> io::Result<String> {
         let output = Command::new("netplan").args(args).output()?;
 
@@ -33,11 +79,41 @@ impl Netplan {
         Ok(result)
     }
 
+    /// Applies the current netplan configuration to the system.
+    ///
+    /// This method executes `netplan apply` to activate the network configuration
+    /// changes that have been written to the netplan configuration file.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the configuration is applied successfully,
+    /// or an `Err(io::Error)` if the netplan apply command fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let netplan = Netplan::default();
+    /// netplan.apply()?;
+    /// ```
     pub fn apply(&self) -> io::Result<()> {
         Self::run_command(&["apply"])?;
         Ok(())
     }
 
+    /// Identifies network interfaces that are missing DHCP addresses.
+    ///
+    /// This function examines the provided interface data to find interfaces
+    /// that have `missing_dhcp4_address` or `missing_dhcp6_address` flags set to true.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A HashMap containing interface names as keys and their configuration
+    ///            mappings as values, typically from netplan status output
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Vec<String>` containing the names of interfaces that are missing
+    /// either DHCPv4 or DHCPv6 addresses.
     fn interfaces_with_misssing_dhcp_address(
         data: &HashMap<String, serde_yml::Mapping>,
     ) -> Vec<String> {
@@ -57,6 +133,19 @@ impl Netplan {
         interfaces
     }
 
+    /// Identifies network interfaces that are configured to expect DHCP addresses.
+    ///
+    /// This function examines the network configuration to find interfaces that are
+    /// configured with DHCP4 enabled or DHCP6 with Router Advertisement acceptance enabled.
+    ///
+    /// # Arguments
+    ///
+    /// * `network` - A reference to the Network configuration containing ethernet interfaces
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Vec<String>` containing the names of interfaces that are expecting
+    /// to receive DHCP addresses based on their configuration.
     fn interfaces_expecting_dhcp_address(network: &Network) -> Vec<String> {
         let mut result = vec![];
         for (eth_name, eth) in network.get_ethernets().iter() {
@@ -73,6 +162,29 @@ impl Netplan {
         result
     }
 
+    /// Applies the network configuration and waits for differences to resolve.
+    ///
+    /// This method applies the current configuration and then monitors for system state
+    /// differences for up to 15 seconds. It specifically handles DHCP address assignment
+    /// delays and distinguishes between expected DHCP delays and actual configuration errors.
+    ///
+    /// The method will wait for interfaces that are expecting DHCP addresses to receive them,
+    /// but will fail immediately if there are other types of configuration differences.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Network)` with the current network configuration if successful,
+    /// or an `Err(HttpResponse)` with an appropriate error message if:
+    /// - The initial apply operation fails
+    /// - There are persistent non-DHCP configuration differences
+    /// - The configuration cannot be loaded after applying
+    ///
+    /// # Behavior
+    ///
+    /// - Waits up to 15 seconds for DHCP address assignment
+    /// - Polls system state differences every second
+    /// - Ignores DHCP address delays for interfaces not expecting DHCP
+    /// - Fails fast on non-DHCP configuration errors
     pub fn apply_with_diff(&self) -> Result<Network, HttpResponse> {
         if self.apply().is_err() {
             return Err(HttpResponse::InternalServerError()
@@ -125,6 +237,24 @@ impl Netplan {
                 .body("There was an error while loading the config.")),
         }
     }
+
+    /// Tests the current netplan configuration with a timeout.
+    ///
+    /// This method executes `netplan try` with a 5-second timeout to test the current
+    /// configuration before permanently applying it. This is useful for validating
+    /// configuration changes without risking network connectivity loss.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the configuration test succeeds,
+    /// or an `Err(io::Error)` if the netplan try command fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let netplan = Netplan::default();
+    /// netplan.tryout()?;
+    /// ```
     pub fn tryout(&self) -> io::Result<()> {
         let cmd = &[
             "try",
@@ -137,6 +267,35 @@ impl Netplan {
         Ok(())
     }
 
+    /// Extracts dynamic network attributes from netplan status output.
+    ///
+    /// This function parses the netplan status YAML data to extract dynamic network
+    /// attributes such as IP addresses, DNS addresses, and routes for ethernet interfaces.
+    /// It processes the runtime network state information that netplan collects from the system.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A YAML mapping containing the netplan status output with interface information
+    ///
+    /// # Returns
+    ///
+    /// Returns a nested HashMap where:
+    /// - Outer key: Interface name (String)
+    /// - Inner key: Dynamic attribute type (DynDevAttrType)
+    /// - Value: Vector of formatted attribute values (Vec<String>)
+    ///
+    /// The function extracts:
+    /// - **Addresses**: IP addresses with their flags and prefixes
+    /// - **DNS Addresses**: DNS server addresses
+    /// - **Routes**: Dynamic routing information
+    ///
+    /// # Behavior
+    ///
+    /// - Only processes interfaces with type "ethernet"
+    /// - Formats addresses with flags in parentheses
+    /// - Includes prefix information when available
+    /// - Filters out invalid route entries and logs parsing errors
+    /// - Returns empty HashMap entries for interfaces without dynamic attributes
     fn get_dynamic_attributes_from_netplan_status(
         data: serde_yml::Mapping,
     ) -> HashMap<String, HashMap<DynDevAttrType, Vec<String>>> {
@@ -201,17 +360,81 @@ impl Netplan {
                     });
                 }
                 // And finally the dynamic_routes
+                if let Some(routes_sequence_of_maps) = data.get("routes") {
+                    let dynamic_routes_vec: Vec<String> = routes_sequence_of_maps
+                        .as_sequence()
+                        .unwrap()
+                        .iter()
+                        .map(|route_map| {
+                            let parsed_dynamic_route: Result<DynamicRoute, serde_yml::Error> =
+                                serde_yml::from_value(route_map.clone());
+                            match parsed_dynamic_route {
+                                Ok(route) => Some(route),
+                                Err(err) => {
+                                    info!("Failed to parse dynamic route: {err}");
+                                    None
+                                }
+                            }
+                        })
+                        .filter(|r| r.is_some())
+                        .map(|route_option| {
+                            let dyn_route = route_option.unwrap();
+                            format!("{dyn_route:?}")
+                        })
+                        .collect();
+                    result.entry(eth_name).and_modify(|dyn_attrs| {
+                        dyn_attrs.insert(DynDevAttrType::Routes, dynamic_routes_vec);
+                    });
+                }
             }
         });
         result
     }
 
+    /// Loads the current network configuration from netplan and system state.
+    ///
+    /// This method combines information from multiple sources to build a complete
+    /// Network configuration:
+    /// - Netplan status output for dynamic attributes
+    /// - System state differences
+    /// - The netplan configuration file
+    ///
+    /// If the configuration file doesn't exist, it creates a default configuration
+    /// with eth0 interface configured for DHCP4 if the interface exists in the system.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Network)` containing the complete network configuration with:
+    /// - Static configuration from the netplan file
+    /// - Dynamic attributes from system state
+    /// - System state differences
+    /// - Route information properly parsed and organized
+    ///
+    /// Returns `Err(io::Error)` if:
+    /// - Netplan commands fail
+    /// - File system operations fail
+    /// - YAML parsing fails
+    ///
+    /// # Behavior
+    ///
+    /// **When configuration file exists:**
+    /// - Parses the existing YAML configuration
+    /// - Adds interface names to ethernet configurations
+    /// - Converts route sequences to mappings for easier manipulation
+    /// - Merges system state differences
+    /// - Applies dynamic attributes from netplan status
+    ///
+    /// **When configuration file doesn't exist:**
+    /// - Checks for eth0 interface in `/sys/class/net`
+    /// - Creates default DHCP4 configuration for eth0 if present
+    /// - Saves the new configuration to disk
+    /// - Returns the newly created configuration
     pub fn load_config(&self) -> io::Result<Network> {
         let status_yaml: serde_yml::Mapping = serde_yml::from_str(&Self::run_command(&[
             "status", "--format", "yaml", "--all",
         ])?)
         .unwrap();
-        let interfaces_dynamic_addresses =
+        let interfaces_dynamic_attributes =
             Self::get_dynamic_attributes_from_netplan_status(status_yaml);
         let diff = self.get_diff()?;
 
@@ -239,8 +462,8 @@ impl Netplan {
                                 .clone(),
                         ).expect("Mapping from system state should be made (at least) an empty mapping."));
                     }
-                    if let Some(eth0_addresses) = interfaces_dynamic_addresses.get("eth0") {
-                        iface.set_dynamic_attributes_from_yaml(eth0_addresses);
+                    if let Some(eth0_dyn_attributes) = interfaces_dynamic_attributes.get("eth0") {
+                        iface.set_dynamic_attributes_from_yaml(eth0_dyn_attributes.clone());
                     }
                     base_interface = Some(iface);
                 }
@@ -312,12 +535,53 @@ impl Netplan {
         }
     }
 
+    /// Creates a backup copy of the current netplan configuration file.
+    ///
+    /// This static method creates a backup of the netplan configuration file by
+    /// copying it to a `.bak` extension. This is typically called before making
+    /// configuration changes to allow for restoration if needed.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the backup is created successfully,
+    /// or an `Err(io::Error)` if the file copy operation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// Netplan::backup_config()?;
+    /// ```
     pub fn backup_config() -> io::Result<()> {
         let backup_path = format!("{}.bak", NETPLAN_CONFIG_PATH);
         fs::copy(NETPLAN_CONFIG_PATH, backup_path)?;
         Ok(())
     }
 
+    /// Saves the network configuration to the netplan configuration file.
+    ///
+    /// This method serializes the provided Network configuration to YAML format
+    /// and writes it to the netplan configuration file. It automatically creates
+    /// a backup of the existing configuration before saving the new one.
+    ///
+    /// # Arguments
+    ///
+    /// * `network` - A reference to the Network configuration to save
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the configuration is saved successfully,
+    /// or an `Err(io::Error)` if:
+    /// - The backup operation fails
+    /// - YAML serialization fails
+    /// - File write operation fails
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let netplan = Netplan::default();
+    /// let network = Network::new();
+    /// netplan.save_config(&network)?;
+    /// ```
     pub fn save_config(&self, network: &Network) -> io::Result<()> {
         Self::backup_config()?;
         // let data = serde_yml::to_value(network)
@@ -331,11 +595,58 @@ impl Netplan {
         Ok(())
     }
 
+    /// Restores the netplan configuration from the backup file.
+    ///
+    /// This method restores the netplan configuration by copying the backup file
+    /// (created by `backup_config()`) back to the main configuration file location.
+    /// This is typically used when a configuration change needs to be reverted.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if the backup file doesn't exist or if the copy
+    /// operation fails. It uses `unwrap()` on the file copy operation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let netplan = Netplan::default();
+    /// netplan.restore_config(); // Restores from backup
+    /// ```
     pub fn restore_config(&self) {
         let backup_path = format!("{}.bak", NETPLAN_CONFIG_PATH);
         fs::copy(backup_path, NETPLAN_CONFIG_PATH).unwrap();
     }
 
+    /// Retrieves the differences between netplan configuration and system state.
+    ///
+    /// This method executes `netplan status --diff-only --format yaml` to get
+    /// information about differences between the configured state and the actual
+    /// system state. It parses the output to extract system state differences
+    /// for each managed interface.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(HashMap<String, serde_yml::Mapping>)` where:
+    /// - Key: Interface name
+    /// - Value: YAML mapping containing the system state differences for that interface
+    ///
+    /// Returns `Err(io::Error)` if the netplan command fails.
+    ///
+    /// # Behavior
+    ///
+    /// - Only includes interfaces that have system_state differences
+    /// - Filters out interfaces without system state information
+    /// - Parses YAML output to extract structured difference data
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let netplan = Netplan::default();
+    /// let diff = netplan.get_diff()?;
+    /// for (interface, differences) in diff {
+    ///     println!("Interface {} has differences: {:?}", interface, differences);
+    /// }
+    /// ```
     pub fn get_diff(&self) -> io::Result<HashMap<String, serde_yml::Mapping>> {
         let cmd = &["status", "--diff-only", "--format", "yaml"];
         let mut result: HashMap<String, serde_yml::Mapping> = HashMap::new();
@@ -360,6 +671,35 @@ impl Netplan {
         Ok(result)
     }
 
+    /// Saves the network configuration and applies it with difference monitoring.
+    ///
+    /// This method combines the save and apply operations, providing a complete
+    /// workflow for updating the network configuration. It first saves the provided
+    /// configuration to the netplan file, then applies it using `apply_with_diff()`
+    /// which monitors for system state convergence.
+    ///
+    /// # Arguments
+    ///
+    /// * `network` - A reference to the Network configuration to save and apply
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Network)` containing the final network configuration after
+    /// successful save and apply operations.
+    ///
+    /// Returns `Err(HttpResponse)` with an appropriate error response if:
+    /// - The save operation fails
+    /// - The apply operation fails
+    /// - There are persistent configuration differences
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let netplan = Netplan::default();
+    /// let mut network = netplan.load_config()?;
+    /// // Modify network configuration...
+    /// let updated_network = netplan.save_and_apply(&network)?;
+    /// ```
     pub fn save_and_apply(&self, network: &Network) -> Result<Network, HttpResponse> {
         match self.save_config(network) {
             Ok(_) => (),
@@ -368,6 +708,28 @@ impl Netplan {
         self.apply_with_diff()
     }
 
+    /// Retrieves all Ethernet interface names from the netplan status output.
+    ///
+    /// This method executes `netplan status --diff-only --format yaml` and parses
+    /// the YAML output to extract all Ethernet interface names (those starting with "eth").
+    /// It searches through multiple sections of the netplan status output:
+    /// - `interfaces`: Currently managed interfaces
+    /// - `missing_interfaces_netplan`: Interfaces missing from netplan configuration
+    /// - `missing_interfaces_system`: Interfaces missing from the system
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Vec<String>)` containing the names of all found Ethernet interfaces,
+    /// or an `Err(io::Error)` if the netplan command fails or if the expected YAML
+    /// structure is not found in the output.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if:
+    /// - The netplan status output is not valid YAML
+    /// - Required sections (`interfaces`, `missing_interfaces_netplan`, `missing_interfaces_system`)
+    ///   are missing from the YAML output
+    /// - Interface names cannot be converted to strings
     pub fn get_all_ethernets(&self) -> io::Result<Vec<String>> {
         let output = Self::run_command(&["status", "--diff-only", "--format", "yaml"])?;
         let mut result: Vec<String> = Vec::new();
