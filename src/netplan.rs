@@ -267,6 +267,64 @@ impl Netplan {
         Ok(())
     }
 
+    /// Initializes the netplan configuration file with default network settings.
+    ///
+    /// This method creates a new network configuration by scanning the system's network
+    /// interfaces in `/sys/class/net` and configuring any Ethernet interfaces found.
+    /// It automatically enables DHCP4 for the `eth0` interface if present, while other
+    /// Ethernet interfaces are added without DHCP configuration.
+    ///
+    /// The method performs the following operations:
+    /// 1. Creates a new empty Network configuration
+    /// 2. Scans `/sys/class/net` for available network interfaces
+    /// 3. Identifies interfaces starting with "eth" (Ethernet interfaces)
+    /// 4. Configures `eth0` with DHCP4 enabled (if present)
+    /// 5. Adds other Ethernet interfaces without DHCP configuration
+    /// 6. Saves the configuration to the netplan configuration file
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Network)` containing the newly created network configuration
+    /// with all discovered Ethernet interfaces properly configured.
+    ///
+    /// Returns `Err(io::Error)` if:
+    /// - Unable to read the `/sys/class/net` directory
+    /// - File system operations fail during interface discovery
+    /// - Saving the configuration to the netplan file fails
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut netplan = Netplan::default();
+    /// let network = netplan.initalize_config_file()?;
+    /// println!("Initialized {} ethernet interfaces", network.get_ethernets().len());
+    /// ```
+    ///
+    /// # Behavior
+    ///
+    /// - Only processes interfaces with names starting with "eth"
+    /// - Automatically enables DHCP4 for `eth0` interface
+    /// - Other Ethernet interfaces are added with default settings
+    /// - Creates and saves the configuration file immediately
+    /// - Overwrites any existing configuration
+    pub fn initalize_config_file(&mut self) -> Result<Network, io::Error> {
+        let mut network = Network::new();
+        fs::read_dir("/sys/class/net")?.for_each(|entry| {
+            let eth_name = entry
+                .expect("All entries in /sys/class/net should be proper entries")
+                .file_name()
+                .into_string()
+                .unwrap();
+            if eth_name.starts_with("eth") {
+                let mut iface = Ethernet::new(eth_name.clone());
+                iface.set_dhcp4(eth_name == "eth0");
+                network.add_ethernet(&iface);
+            }
+        });
+        Netplan::save_config(&self, &network)?;
+        Ok(network)
+    }
+
     /// Extracts dynamic network attributes from netplan status output.
     ///
     /// This function parses the netplan status YAML data to extract dynamic network
